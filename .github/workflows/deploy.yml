@@ -1,0 +1,41 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Deploy to Digital Ocean
+      uses: appleboy/ssh-action@v1.0.0
+      with:
+        host: ${{ secrets.DEPLOY_HOST }}
+        username: ${{ secrets.DEPLOY_USER }}
+        key: ${{ secrets.DEPLOY_KEY }}
+        script: |
+          cd ${{ secrets.DEPLOY_PATH }}
+          
+          echo "🔄 Pulling latest changes..."
+          git pull origin main
+          
+          echo "🐳 Rebuilding Docker containers..."
+          docker-compose down
+          docker-compose build --no-cache
+          docker-compose up -d
+          
+          echo "⏳ Waiting for container to be ready..."
+          sleep 10
+          
+          echo "🗄️ Running migrations..."
+          docker-compose exec -T app php artisan migrate --force
+          
+          echo "⚡ Optimizing application..."
+          docker-compose exec -T app php artisan config:cache
+          docker-compose exec -T app php artisan route:cache
+          docker-compose exec -T app php artisan view:cache
+          
+          echo "✅ Deployment completed!"
+

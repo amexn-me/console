@@ -1,0 +1,56 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+
+class Contact extends Model
+{
+    protected $table = 'contact';
+    
+    public $incrementing = false;
+    
+    public $timestamps = false;
+    
+    const CREATED_AT = 'created_at';
+    const UPDATED_AT = null;
+    
+    protected $fillable = [
+        'id',
+        'company_id',
+        'name',
+        'title',
+        'email',
+        'phone1',
+        'phone2',
+        'linkedin_url',
+        'is_pic',
+        'next_followup_date',
+        'do_not_contact',
+        'interest_level',
+        'next_followup_datetime',
+        'followup_completed',
+        'reminder_sent',
+    ];
+
+    protected $casts = [
+        'is_pic' => 'boolean',
+        'do_not_contact' => 'boolean',
+        'followup_completed' => 'boolean',
+        'reminder_sent' => 'boolean',
+        'next_followup_date' => 'date',
+        'next_followup_datetime' => 'datetime',
+        'created_at' => 'datetime',
+    ];
+
+    public function company()
+    {
+        return $this->belongsTo(Company::class, 'company_id');
+    }
+
+    public function activities()
+    {
+        return $this->hasMany(Activity::class, 'contact_id');
+    }
+}
+
