@@ -38,9 +38,6 @@ export default function Login({ status, canResetPassword }: LoginProps) {
 
         try {
             const response = await axios.post(route('login'), data, {
-                headers: {
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-                },
                 withCredentials: true,
             });
             

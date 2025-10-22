@@ -82,6 +82,7 @@ interface AgentPerformance {
     total_leads: number;
     won_leads: number;
     lost_leads: number;
+    disqualified_leads: number;
     in_progress_leads: number;
     conversion_rate: number;
     close_rate: number;
@@ -606,7 +607,7 @@ export default function CampaignsShow() {
                                 <div>
                                     <h2 className="text-xl font-semibold">Stale Lead Monitoring</h2>
                                     <p className="text-sm text-muted-foreground">
-                                        Track inactive leads that need follow-up attention (excluding Closed Win/Closed Lost)
+                                        Track inactive leads that need follow-up attention (excluding Closed Won/Closed Lost/Disqualified)
                                     </p>
                                 </div>
 
@@ -967,8 +968,9 @@ export default function CampaignsShow() {
                                             <TableRow>
                                                 <TableHead>Agent</TableHead>
                                                 <TableHead className="text-center">Total Leads</TableHead>
-                                                <TableHead className="text-center">Closed Win</TableHead>
+                                                <TableHead className="text-center">Closed Won</TableHead>
                                                 <TableHead className="text-center">Closed Lost</TableHead>
+                                                <TableHead className="text-center">Disqualified</TableHead>
                                                 <TableHead className="text-center">In Progress</TableHead>
                                                 <TableHead className="text-center">Win Rate</TableHead>
                                                 <TableHead className="text-center">Close Rate</TableHead>
@@ -991,6 +993,11 @@ export default function CampaignsShow() {
                                                     <TableCell className="text-center">
                                                         <span className="inline-flex items-center justify-center px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-800">
                                                             {agent.lost_leads}
+                                                        </span>
+                                                    </TableCell>
+                                                    <TableCell className="text-center">
+                                                        <span className="inline-flex items-center justify-center px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-800">
+                                                            {agent.disqualified_leads}
                                                         </span>
                                                     </TableCell>
                                                     <TableCell className="text-center">

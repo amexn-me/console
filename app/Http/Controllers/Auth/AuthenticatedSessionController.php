@@ -171,6 +171,9 @@ class AuthenticatedSessionController extends Controller
         // Mark OTP as used
         $otpLog->markAsUsed();
 
+        // Update last login timestamp
+        $user->updateLastLogin();
+
         // Log the user in
         Auth::login($user, $request->session()->get('remember', false));
 

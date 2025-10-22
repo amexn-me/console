@@ -63,7 +63,31 @@ class CompaniesController extends Controller
         $sortField = $request->get('sort_by', 'created_at');
         $sortDirection = $request->get('sort_direction', 'desc');
         
-        $query->orderBy($sortField, $sortDirection);
+        // Map frontend sort column names to database columns/relationships
+        switch ($sortField) {
+            case 'agent_name':
+                $query->join('users', 'company.agent_id', '=', 'users.id')
+                    ->orderBy('users.name', $sortDirection)
+                    ->select('company.*');
+                break;
+            case 'partner_name':
+                $query->leftJoin('partner', 'company.partner_id', '=', 'partner.id')
+                    ->orderBy('partner.name', $sortDirection)
+                    ->select('company.*');
+                break;
+            case 'contacts_count':
+                // This is already handled by withCount, but we need to order by the aggregate
+                $query->orderBy('contacts_count', $sortDirection);
+                break;
+            case 'name':
+            case 'stage':
+            case 'next_followup_date':
+            case 'created_at':
+                $query->orderBy($sortField, $sortDirection);
+                break;
+            default:
+                $query->orderBy('created_at', 'desc');
+        }
 
         // Paginate with 50 items per page for lazy loading
         $companies = $query->paginate(50)->withQueryString();

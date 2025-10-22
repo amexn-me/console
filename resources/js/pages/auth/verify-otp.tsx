@@ -70,9 +70,6 @@ export default function VerifyOtp({ email }: VerifyOtpProps) {
 
         try {
             const response = await axios.post(route('otp.verify'), { otp: otpValue }, {
-                headers: {
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-                },
                 withCredentials: true,
             });
             
@@ -108,9 +105,6 @@ export default function VerifyOtp({ email }: VerifyOtpProps) {
 
         try {
             const response = await axios.post(route('otp.resend'), {}, {
-                headers: {
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-                },
                 withCredentials: true,
             });
             setResendMessage(response.data.message);

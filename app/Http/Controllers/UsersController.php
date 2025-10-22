@@ -15,8 +15,15 @@ class UsersController extends Controller
     {
         $query = User::query()->with('disabledByUser:id,name,email');
 
-        // Sort alphabetically by name
-        $query->orderBy('name', 'asc');
+        // Sort by role hierarchy: super admins first, then segment admins, then users
+        // Within each group, sort alphabetically by name
+        $query->orderByRaw("
+            CASE 
+                WHEN role = 'super_admin' THEN 1
+                WHEN role LIKE '%_admin' THEN 2
+                ELSE 3
+            END
+        ")->orderBy('name', 'asc');
 
         $users = $query->paginate(20);
 
@@ -26,7 +33,7 @@ class UsersController extends Controller
             'active' => User::active()->count(),
             'inactive' => User::inactive()->count(),
             'super_admins' => User::byRole(User::ROLE_SUPER_ADMIN)->count(),
-            'admins' => User::whereIn('role', User::ADMIN_ROLES)->count(),
+            'admins' => User::byRole(User::ROLE_SUPER_ADMIN)->count(), // Only super admins
             'users' => User::whereIn('role', User::USER_ROLES)->count(),
         ];
 

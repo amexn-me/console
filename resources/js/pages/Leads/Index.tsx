@@ -7,7 +7,7 @@ import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import { Head, router, usePage } from '@inertiajs/react';
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { Search, Loader2 } from 'lucide-react';
+import { Search, Loader2, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -74,6 +74,8 @@ interface PageProps {
         campaign_id?: string;
         stage?: string;
         agent_id?: string;
+        sort_by?: string;
+        sort_direction?: 'asc' | 'desc';
     };
     [key: string]: any;
 }
@@ -92,9 +94,11 @@ export default function LeadsIndex() {
     const [selectedCampaign, setSelectedCampaign] = useState<string>(filters.campaign_id || 'all');
     const [selectedStage, setSelectedStage] = useState<string>(filters.stage || 'all');
     const [selectedAgent, setSelectedAgent] = useState<string>(filters.agent_id || 'all');
+    const [sortBy, setSortBy] = useState<string>(filters.sort_by || '');
+    const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>(filters.sort_direction || 'asc');
     const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-    const loadMoreLeads = () => {
+    const loadMoreLeads = useCallback(() => {
         if (loadingRef.current || !hasMorePages || isLoadingMore) return;
 
         loadingRef.current = true;
@@ -108,6 +112,10 @@ export default function LeadsIndex() {
         if (selectedCampaign !== 'all') params.campaign_id = selectedCampaign;
         if (selectedStage !== 'all') params.stage = selectedStage;
         if (selectedAgent !== 'all') params.agent_id = selectedAgent;
+        if (sortBy) {
+            params.sort_by = sortBy;
+            params.sort_direction = sortDirection;
+        }
 
         router.get('/sales/leads', params, {
             preserveState: true,
@@ -126,7 +134,7 @@ export default function LeadsIndex() {
                 loadingRef.current = false;
             },
         });
-    };
+    }, [hasMorePages, isLoadingMore, currentPage, searchQuery, selectedCampaign, selectedStage, selectedAgent, sortBy, sortDirection]);
 
     // Infinite scroll
     useEffect(() => {
@@ -154,7 +162,7 @@ export default function LeadsIndex() {
         setTimeout(checkInitialLoad, 100);
 
         return () => container.removeEventListener('scroll', handleScroll);
-    }, [hasMorePages, isLoadingMore, currentPage, leads.length]);
+    }, [hasMorePages, isLoadingMore, currentPage, leads.length, loadMoreLeads]);
 
     const applyFilters = useCallback((search?: string) => {
         const params: any = {};
@@ -164,6 +172,10 @@ export default function LeadsIndex() {
         if (selectedCampaign !== 'all') params.campaign_id = selectedCampaign;
         if (selectedStage !== 'all') params.stage = selectedStage;
         if (selectedAgent !== 'all') params.agent_id = selectedAgent;
+        if (sortBy) {
+            params.sort_by = sortBy;
+            params.sort_direction = sortDirection;
+        }
 
         router.get('/sales/leads', params, {
             preserveState: true,
@@ -175,7 +187,7 @@ export default function LeadsIndex() {
                 setHasMorePages(response.props.leads.current_page < response.props.leads.last_page);
             },
         });
-    }, [searchQuery, selectedCampaign, selectedStage, selectedAgent]);
+    }, [searchQuery, selectedCampaign, selectedStage, selectedAgent, sortBy, sortDirection]);
 
     // Debounced search
     const handleSearchChange = (value: string) => {
@@ -211,6 +223,8 @@ export default function LeadsIndex() {
         setSelectedCampaign('all');
         setSelectedStage('all');
         setSelectedAgent('all');
+        setSortBy('');
+        setSortDirection('asc');
         
         router.get('/sales/leads', {}, {
             preserveState: false,
@@ -231,6 +245,10 @@ export default function LeadsIndex() {
             if (value !== 'all') params.campaign_id = value;
             if (selectedStage !== 'all') params.stage = selectedStage;
             if (selectedAgent !== 'all') params.agent_id = selectedAgent;
+            if (sortBy) {
+                params.sort_by = sortBy;
+                params.sort_direction = sortDirection;
+            }
 
             router.get('/sales/leads', params, {
                 preserveState: true,
@@ -253,6 +271,10 @@ export default function LeadsIndex() {
             if (selectedCampaign !== 'all') params.campaign_id = selectedCampaign;
             if (value !== 'all') params.stage = value;
             if (selectedAgent !== 'all') params.agent_id = selectedAgent;
+            if (sortBy) {
+                params.sort_by = sortBy;
+                params.sort_direction = sortDirection;
+            }
 
             router.get('/sales/leads', params, {
                 preserveState: true,
@@ -275,6 +297,10 @@ export default function LeadsIndex() {
             if (selectedCampaign !== 'all') params.campaign_id = selectedCampaign;
             if (selectedStage !== 'all') params.stage = selectedStage;
             if (value !== 'all') params.agent_id = value;
+            if (sortBy) {
+                params.sort_by = sortBy;
+                params.sort_direction = sortDirection;
+            }
 
             router.get('/sales/leads', params, {
                 preserveState: true,
@@ -291,6 +317,47 @@ export default function LeadsIndex() {
 
     const handleLeadClick = (leadId: number) => {
         router.visit(`/sales/leads/${leadId}`);
+    };
+
+    const handleSort = (column: string) => {
+        let newDirection: 'asc' | 'desc' = 'asc';
+        
+        // If clicking the same column, toggle direction
+        if (sortBy === column) {
+            newDirection = sortDirection === 'asc' ? 'desc' : 'asc';
+        }
+        
+        setSortBy(column);
+        setSortDirection(newDirection);
+        
+        // Apply sort immediately
+        const params: any = {};
+        if (searchQuery) params.search = searchQuery;
+        if (selectedCampaign !== 'all') params.campaign_id = selectedCampaign;
+        if (selectedStage !== 'all') params.stage = selectedStage;
+        if (selectedAgent !== 'all') params.agent_id = selectedAgent;
+        params.sort_by = column;
+        params.sort_direction = newDirection;
+
+        router.get('/sales/leads', params, {
+            preserveState: true,
+            preserveScroll: true,
+            only: ['leads'],
+            onSuccess: (response: any) => {
+                setLeads(response.props.leads.data);
+                setCurrentPage(response.props.leads.current_page);
+                setHasMorePages(response.props.leads.current_page < response.props.leads.last_page);
+            },
+        });
+    };
+
+    const getSortIcon = (column: string) => {
+        if (sortBy !== column) {
+            return <ArrowUpDown className="ml-2 h-4 w-4 text-gray-400" />;
+        }
+        return sortDirection === 'asc' 
+            ? <ArrowUp className="ml-2 h-4 w-4 text-blue-600" />
+            : <ArrowDown className="ml-2 h-4 w-4 text-blue-600" />;
     };
 
     const getStageBadgeColor = (stage: string) => {
@@ -425,14 +492,78 @@ export default function LeadsIndex() {
                                 <Table>
                                     <TableHeader className="sticky top-0 bg-white z-10">
                                         <TableRow>
-                                            <TableHead>Company</TableHead>
-                                            <TableHead>Campaign</TableHead>
-                                            <TableHead>Stage</TableHead>
-                                            <TableHead>Agent</TableHead>
-                                            <TableHead className="text-center">Contacts</TableHead>
-                                            <TableHead>Next Follow-up</TableHead>
-                                            <TableHead>Last Activity</TableHead>
-                                            <TableHead>Partner</TableHead>
+                                            <TableHead>
+                                                <button 
+                                                    onClick={() => handleSort('company_name')}
+                                                    className="flex items-center hover:text-blue-600 transition-colors font-medium"
+                                                >
+                                                    Company
+                                                    {getSortIcon('company_name')}
+                                                </button>
+                                            </TableHead>
+                                            <TableHead>
+                                                <button 
+                                                    onClick={() => handleSort('campaign_name')}
+                                                    className="flex items-center hover:text-blue-600 transition-colors font-medium"
+                                                >
+                                                    Campaign
+                                                    {getSortIcon('campaign_name')}
+                                                </button>
+                                            </TableHead>
+                                            <TableHead>
+                                                <button 
+                                                    onClick={() => handleSort('stage')}
+                                                    className="flex items-center hover:text-blue-600 transition-colors font-medium"
+                                                >
+                                                    Stage
+                                                    {getSortIcon('stage')}
+                                                </button>
+                                            </TableHead>
+                                            <TableHead>
+                                                <button 
+                                                    onClick={() => handleSort('agent_name')}
+                                                    className="flex items-center hover:text-blue-600 transition-colors font-medium"
+                                                >
+                                                    Agent
+                                                    {getSortIcon('agent_name')}
+                                                </button>
+                                            </TableHead>
+                                            <TableHead className="text-center">
+                                                <button 
+                                                    onClick={() => handleSort('contacts_count')}
+                                                    className="flex items-center justify-center hover:text-blue-600 transition-colors font-medium mx-auto"
+                                                >
+                                                    Contacts
+                                                    {getSortIcon('contacts_count')}
+                                                </button>
+                                            </TableHead>
+                                            <TableHead>
+                                                <button 
+                                                    onClick={() => handleSort('next_followup_date')}
+                                                    className="flex items-center hover:text-blue-600 transition-colors font-medium"
+                                                >
+                                                    Next Follow-up
+                                                    {getSortIcon('next_followup_date')}
+                                                </button>
+                                            </TableHead>
+                                            <TableHead>
+                                                <button 
+                                                    onClick={() => handleSort('last_activity_date')}
+                                                    className="flex items-center hover:text-blue-600 transition-colors font-medium"
+                                                >
+                                                    Last Activity
+                                                    {getSortIcon('last_activity_date')}
+                                                </button>
+                                            </TableHead>
+                                            <TableHead>
+                                                <button 
+                                                    onClick={() => handleSort('partner_name')}
+                                                    className="flex items-center hover:text-blue-600 transition-colors font-medium"
+                                                >
+                                                    Partner
+                                                    {getSortIcon('partner_name')}
+                                                </button>
+                                            </TableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
@@ -442,7 +573,7 @@ export default function LeadsIndex() {
                                                 onClick={() => handleLeadClick(lead.id)}
                                                 className="cursor-pointer hover:bg-gray-50"
                                             >
-                                                <TableCell className="font-medium">
+                                                <TableCell className="font-medium max-w-[250px] whitespace-normal break-words">
                                                     {lead.company.name}
                                                 </TableCell>
                                                 <TableCell className="text-sm">

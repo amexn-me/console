@@ -53,15 +53,37 @@ class ContactsController extends Controller
             }
         }
 
-        // Sort by created_at descending by default
-        $query->orderBy('created_at', 'desc');
+        // Apply sorting
+        $sortField = $request->get('sort_by', 'created_at');
+        $sortDirection = $request->get('sort_direction', 'desc');
+        
+        // Map frontend sort column names to database columns/relationships
+        switch ($sortField) {
+            case 'company_name':
+                $query->join('company', 'contact.company_id', '=', 'company.id')
+                    ->orderBy('company.name', $sortDirection)
+                    ->select('contact.*');
+                break;
+            case 'name':
+            case 'title':
+            case 'phone1':
+            case 'phone2':
+            case 'email':
+            case 'is_pic':
+            case 'interest_level':
+            case 'created_at':
+                $query->orderBy($sortField, $sortDirection);
+                break;
+            default:
+                $query->orderBy('created_at', 'desc');
+        }
 
         // Paginate with 50 items per page for lazy loading
         $contacts = $query->paginate(50)->withQueryString();
 
         return Inertia::render('Contacts/Index', [
             'contacts' => $contacts,
-            'filters' => $request->only(['search', 'interest_level', 'pic_status']),
+            'filters' => $request->only(['search', 'interest_level', 'pic_status', 'sort_by', 'sort_direction']),
         ]);
     }
 }

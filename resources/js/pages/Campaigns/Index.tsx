@@ -38,6 +38,8 @@ interface Campaign {
         name: string;
     };
     leads_count: number;
+    contacts_count: number;
+    closed_won_count: number;
     closed_leads_count: number;
     users_count: number;
     created_at: string;
@@ -92,10 +94,10 @@ export default function CampaignsIndex({ campaigns }: PageProps) {
                                 <TableHead>Name</TableHead>
                                 <TableHead>Product</TableHead>
                                 <TableHead>Status</TableHead>
-                                <TableHead>Start Date</TableHead>
-                                <TableHead>End Date</TableHead>
-                                <TableHead>Leads</TableHead>
-                                <TableHead>Users</TableHead>
+                                <TableHead className="text-center">Leads</TableHead>
+                                <TableHead className="text-center">Contacts</TableHead>
+                                <TableHead className="text-center">Won</TableHead>
+                                <TableHead className="text-center">Agents</TableHead>
                                 <TableHead>Progress</TableHead>
                             </TableRow>
                         </TableHeader>
@@ -126,18 +128,10 @@ export default function CampaignsIndex({ campaigns }: PageProps) {
                                             )}
                                         </TableCell>
                                         <TableCell>{getStatusBadge(campaign.status)}</TableCell>
-                                        <TableCell>
-                                            {campaign.start_date
-                                                ? new Date(campaign.start_date).toLocaleDateString()
-                                                : '-'}
-                                        </TableCell>
-                                        <TableCell>
-                                            {campaign.end_date
-                                                ? new Date(campaign.end_date).toLocaleDateString()
-                                                : '-'}
-                                        </TableCell>
-                                        <TableCell>{campaign.leads_count}</TableCell>
-                                        <TableCell>{campaign.users_count}</TableCell>
+                                        <TableCell className="text-center">{campaign.leads_count}</TableCell>
+                                        <TableCell className="text-center">{campaign.contacts_count}</TableCell>
+                                        <TableCell className="text-center">{campaign.closed_won_count}</TableCell>
+                                        <TableCell className="text-center">{campaign.users_count}</TableCell>
                                         <TableCell>
                                             <div className="flex items-center gap-3 min-w-[200px]">
                                                 <Progress value={calculateProgress(campaign)} className="flex-1" />

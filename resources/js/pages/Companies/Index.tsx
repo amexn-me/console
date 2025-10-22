@@ -7,8 +7,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import { Head, router, usePage, useForm } from '@inertiajs/react';
-import { useState, useEffect, useRef } from 'react';
-import { FileDown, Search, Loader2, Plus } from 'lucide-react';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { FileDown, Search, Loader2, Plus, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { usePermissions } from '@/hooks/use-permissions';
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -77,6 +77,7 @@ interface PageProps {
         sort_by?: string;
         sort_direction?: string;
     };
+    [key: string]: any;
 }
 
 export default function CompaniesIndex() {
@@ -177,7 +178,7 @@ export default function CompaniesIndex() {
         }
     };
 
-    const loadMoreCompanies = () => {
+    const loadMoreCompanies = useCallback(() => {
         if (loadingRef.current || !hasMorePages || isLoadingMore) return;
 
         loadingRef.current = true;
@@ -212,7 +213,7 @@ export default function CompaniesIndex() {
                 loadingRef.current = false;
             },
         });
-    };
+    }, [hasMorePages, isLoadingMore, currentPage, localFilters]);
 
     // Infinite scroll handler
     useEffect(() => {
@@ -240,12 +241,48 @@ export default function CompaniesIndex() {
         setTimeout(checkInitialLoad, 100);
 
         return () => container.removeEventListener('scroll', handleScroll);
-    }, [hasMorePages, isLoadingMore, currentPage, companies.length]);
+    }, [hasMorePages, isLoadingMore, currentPage, companies.length, loadMoreCompanies]);
 
-    const handleSort = (field: string) => {
-        const newDirection = localFilters.sort_by === field && localFilters.sort_direction === 'asc' ? 'desc' : 'asc';
-        handleFilterChange('sort_by', field);
-        handleFilterChange('sort_direction', newDirection);
+    const handleSort = (column: string) => {
+        let newDirection: 'asc' | 'desc' = 'asc';
+        
+        // If clicking the same column, toggle direction
+        if (localFilters.sort_by === column) {
+            newDirection = localFilters.sort_direction === 'asc' ? 'desc' : 'asc';
+        }
+        
+        const newFilters = {
+            ...localFilters,
+            sort_by: column,
+            sort_direction: newDirection
+        };
+        
+        setLocalFilters(newFilters);
+        
+        // Apply sort immediately
+        const params: Record<string, string> = {};
+        if (newFilters.stage && newFilters.stage !== 'all') params.stage = newFilters.stage;
+        if (newFilters.agent_id && newFilters.agent_id !== 'all') params.agent_id = newFilters.agent_id;
+        if (newFilters.search) params.search = newFilters.search;
+        if (newFilters.pic_status && newFilters.pic_status !== 'all') params.pic_status = newFilters.pic_status;
+        if (newFilters.interest_level && newFilters.interest_level !== 'all') params.interest_level = newFilters.interest_level;
+        params.sort_by = column;
+        params.sort_direction = newDirection;
+
+        router.get('/sales/companies', params, {
+            preserveState: true,
+            preserveScroll: true,
+            only: ['companies'],
+        });
+    };
+
+    const getSortIcon = (column: string) => {
+        if (localFilters.sort_by !== column) {
+            return <ArrowUpDown className="ml-2 h-4 w-4 text-gray-400" />;
+        }
+        return localFilters.sort_direction === 'asc' 
+            ? <ArrowUp className="ml-2 h-4 w-4 text-blue-600" />
+            : <ArrowDown className="ml-2 h-4 w-4 text-blue-600" />;
     };
 
     const handleExport = () => {
@@ -319,7 +356,7 @@ export default function CompaniesIndex() {
                 </div>
 
                 {/* Filters */}
-                <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-3 rounded-lg border bg-card p-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-3 rounded-lg border bg-card p-4">
                     <div className="space-y-2">
                         <Label htmlFor="search">Search</Label>
                         <div className="relative">
@@ -396,21 +433,6 @@ export default function CompaniesIndex() {
                             </SelectContent>
                         </Select>
                     </div>
-
-                    <div className="space-y-2">
-                        <Label htmlFor="sort-by-filter">Sort By</Label>
-                        <Select value={localFilters.sort_by} onValueChange={(val) => handleFilterChange('sort_by', val)}>
-                            <SelectTrigger id="sort-by-filter">
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="name">Company Name</SelectItem>
-                                <SelectItem value="stage">Stage</SelectItem>
-                                <SelectItem value="next_followup_date">Next Follow-up</SelectItem>
-                                <SelectItem value="created_at">Created Date</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
                 </div>
 
                 <div className="flex items-center justify-between text-sm text-muted-foreground">
@@ -428,22 +450,64 @@ export default function CompaniesIndex() {
                 <div className="flex-1 overflow-hidden rounded-lg border flex flex-col">
                     <div ref={scrollContainerRef} className="overflow-auto flex-1">
                         <Table>
-                        <TableHeader>
+                        <TableHeader className="sticky top-0 bg-white z-10">
                             <TableRow>
-                                <TableHead className="cursor-pointer" onClick={() => handleSort('name')}>
-                                    Company {localFilters.sort_by === 'name' && (localFilters.sort_direction === 'asc' ? '↑' : '↓')}
+                                <TableHead>
+                                    <button 
+                                        onClick={() => handleSort('name')}
+                                        className="flex items-center hover:text-blue-600 transition-colors font-medium"
+                                    >
+                                        Company
+                                        {getSortIcon('name')}
+                                    </button>
                                 </TableHead>
-                                <TableHead className="cursor-pointer" onClick={() => handleSort('stage')}>
-                                    Stage {localFilters.sort_by === 'stage' && (localFilters.sort_direction === 'asc' ? '↑' : '↓')}
+                                <TableHead>
+                                    <button 
+                                        onClick={() => handleSort('stage')}
+                                        className="flex items-center hover:text-blue-600 transition-colors font-medium"
+                                    >
+                                        Stage
+                                        {getSortIcon('stage')}
+                                    </button>
                                 </TableHead>
-                                <TableHead>Agent</TableHead>
-                                <TableHead>Contacts</TableHead>
+                                <TableHead>
+                                    <button 
+                                        onClick={() => handleSort('agent_name')}
+                                        className="flex items-center hover:text-blue-600 transition-colors font-medium"
+                                    >
+                                        Agent
+                                        {getSortIcon('agent_name')}
+                                    </button>
+                                </TableHead>
+                                <TableHead>
+                                    <button 
+                                        onClick={() => handleSort('contacts_count')}
+                                        className="flex items-center hover:text-blue-600 transition-colors font-medium"
+                                    >
+                                        Contacts
+                                        {getSortIcon('contacts_count')}
+                                    </button>
+                                </TableHead>
                                 <TableHead>PIC Status</TableHead>
                                 <TableHead>Interest</TableHead>
-                                <TableHead className="cursor-pointer" onClick={() => handleSort('next_followup_date')}>
-                                    Next Follow-up {localFilters.sort_by === 'next_followup_date' && (localFilters.sort_direction === 'asc' ? '↑' : '↓')}
+                                <TableHead>
+                                    <button 
+                                        onClick={() => handleSort('next_followup_date')}
+                                        className="flex items-center hover:text-blue-600 transition-colors font-medium"
+                                    >
+                                        Next Follow-up
+                                        {getSortIcon('next_followup_date')}
+                                    </button>
                                 </TableHead>
-                                <TableHead>Partner Name</TableHead>
+                                <TableHead>
+                                    <button 
+                                        onClick={() => handleSort('partner_name')}
+                                        className="flex items-center hover:text-blue-600 transition-colors font-medium"
+                                    >
+                                        Partner
+                                        {getSortIcon('partner_name')}
+                                    </button>
+                                </TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -460,7 +524,7 @@ export default function CompaniesIndex() {
                                         className="cursor-pointer hover:bg-muted/50 transition-colors"
                                         onClick={() => router.visit(`/sales/companies/${company.id}`)}
                                     >
-                                        <TableCell className="font-medium max-w-[200px] truncate" title={company.name}>{company.name}</TableCell>
+                                        <TableCell className="font-medium max-w-[250px] whitespace-normal break-words">{company.name}</TableCell>
                                         <TableCell>
                                             <span className="rounded-full bg-blue-100 px-2 py-1 text-xs text-blue-700">
                                                 {company.stage || 'N/A'}

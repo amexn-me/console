@@ -344,7 +344,7 @@ export default function TasksIndex() {
                                             <SelectValue placeholder="Select company (optional)" />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            <SelectItem value="">None</SelectItem>
+                                            <SelectItem value="none">None</SelectItem>
                                             {companies.map((company) => (
                                                 <SelectItem key={company.id} value={company.id.toString()}>
                                                     {company.name}
@@ -563,7 +563,7 @@ export default function TasksIndex() {
                                     <SelectValue placeholder="Select company (optional)" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="">None</SelectItem>
+                                    <SelectItem value="none">None</SelectItem>
                                     {companies.map((company) => (
                                         <SelectItem key={company.id} value={company.id.toString()}>
                                             {company.name}

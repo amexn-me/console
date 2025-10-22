@@ -25,12 +25,27 @@ class CampaignsController extends Controller
             ->withCount([
                 'leads',
                 'users',
+                'leads as closed_won_count' => function ($query) {
+                    $query->where('stage', 'Closed Won');
+                },
                 'leads as closed_leads_count' => function ($query) {
-                    $query->whereIn('stage', ['Closed Win', 'Closed Lost']);
+                    $query->whereIn('stage', ['Closed Won', 'Closed Lost', 'Disqualified']);
                 }
             ])
-            ->orderBy('created_at', 'desc')
-            ->get();
+            ->get()
+            ->map(function ($campaign) {
+                // Count contacts through the campaign's leads
+                $contactsCount = \App\Models\Contact::whereIn('company_id', function($query) use ($campaign) {
+                    $query->select('company_id')
+                        ->from('leads')
+                        ->where('campaign_id', $campaign->id);
+                })->count();
+                
+                $campaign->contacts_count = $contactsCount;
+                return $campaign;
+            })
+            ->sortByDesc('created_at')
+            ->values();
 
         return Inertia::render('Campaigns/Index', [
             'campaigns' => $campaigns,
@@ -111,7 +126,7 @@ class CampaignsController extends Controller
         $campaign->loadCount([
             'leads',
             'leads as closed_leads_count' => function ($query) {
-                $query->whereIn('stage', ['Closed Win', 'Closed Lost']);
+                $query->whereIn('stage', ['Closed Won', 'Closed Lost', 'Disqualified']);
             }
         ]);
 
@@ -178,7 +193,7 @@ class CampaignsController extends Controller
             
             // Get all non-closed leads with their last activity
             $staleLead = Lead::where('campaign_id', $campaign->id)
-                ->whereNotIn('stage', ['Closed Win', 'Closed Lost'])
+                ->whereNotIn('stage', ['Closed Won', 'Closed Lost', 'Disqualified'])
                 ->with(['company', 'agent'])
                 ->get()
                 ->map(function($lead) use ($now) {
@@ -236,9 +251,10 @@ class CampaignsController extends Controller
                     ->get();
                 
                 $totalLeads = $leads->count();
-                $wonLeads = $leads->where('stage', 'Closed Win')->count();
+                $wonLeads = $leads->where('stage', 'Closed Won')->count();
                 $lostLeads = $leads->where('stage', 'Closed Lost')->count();
-                $inProgressLeads = $totalLeads - $wonLeads - $lostLeads;
+                $disqualifiedLeads = $leads->where('stage', 'Disqualified')->count();
+                $inProgressLeads = $totalLeads - $wonLeads - $lostLeads - $disqualifiedLeads;
                 
                 // Get last activity for this agent in this campaign
                 $lastActivity = Activity::where('agent_id', $agent->id)
@@ -269,9 +285,10 @@ class CampaignsController extends Controller
                     'total_leads' => $totalLeads,
                     'won_leads' => $wonLeads,
                     'lost_leads' => $lostLeads,
+                    'disqualified_leads' => $disqualifiedLeads,
                     'in_progress_leads' => $inProgressLeads,
                     'conversion_rate' => $totalLeads > 0 ? round(($wonLeads / $totalLeads) * 100, 1) : 0,
-                    'close_rate' => $totalLeads > 0 ? round((($wonLeads + $lostLeads) / $totalLeads) * 100, 1) : 0,
+                    'close_rate' => $totalLeads > 0 ? round((($wonLeads + $lostLeads + $disqualifiedLeads) / $totalLeads) * 100, 1) : 0,
                     'last_activity_date' => $lastActivity ? $lastActivity->created_at : null,
                     'last_update_date' => $lastLeadUpdate ? $lastLeadUpdate->updated_at : null,
                     'activities_last_7_days' => $activitiesLast7Days,

@@ -87,11 +87,17 @@ class TaskController extends Controller
 
     public function store(Request $request)
     {
-        $validated = $request->validate([
+        // Convert "none" to null for optional company field
+        $data = $request->all();
+        if (isset($data['company_id']) && $data['company_id'] === 'none') {
+            $data['company_id'] = null;
+        }
+
+        $validated = validator($data, [
             'task' => 'required|string',
             'user_id' => 'required|exists:users,id',
             'company_id' => 'nullable|exists:company,id',
-        ]);
+        ])->validate();
 
         // Generate a new ID (you might want to use a better method for ID generation)
         $maxId = Todo::max('id') ?? 0;
@@ -114,12 +120,18 @@ class TaskController extends Controller
             abort(403, 'Unauthorized action. You can only update your own tasks.');
         }
 
-        $validated = $request->validate([
+        // Convert "none" to null for optional company field
+        $data = $request->all();
+        if (isset($data['company_id']) && $data['company_id'] === 'none') {
+            $data['company_id'] = null;
+        }
+
+        $validated = validator($data, [
             'task' => 'sometimes|required|string',
             'user_id' => 'sometimes|required|exists:users,id',
             'company_id' => 'nullable|exists:company,id',
             'is_completed' => 'sometimes|boolean',
-        ]);
+        ])->validate();
 
         if (isset($validated['is_completed'])) {
             if ($validated['is_completed'] && !$todo->is_completed) {

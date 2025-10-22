@@ -97,6 +97,7 @@ interface PageProps {
     };
     availableRoles: string[];
     roleLabels: Record<string, string>;
+    [key: string]: any;
 }
 
 export default function UsersIndex() {
@@ -200,11 +201,23 @@ export default function UsersIndex() {
 
     const handleResetPassword = (user: ExtendedUser) => {
         setSelectedUser(user);
+        resetPasswordForm.reset();
+        resetPasswordForm.clearErrors();
         setResetPasswordDialogOpen(true);
     };
 
     const confirmResetPassword = () => {
         if (!selectedUser) return;
+        
+        // Client-side validation: check if passwords match
+        if (resetPasswordForm.data.password !== resetPasswordForm.data.password_confirmation) {
+            resetPasswordForm.setError('password_confirmation', 'The passwords do not match.');
+            return;
+        }
+        
+        // Clear any previous errors
+        resetPasswordForm.clearErrors('password_confirmation');
+        
         resetPasswordForm.post(`/users/${selectedUser.id}/reset-password`, {
             preserveState: false,
             preserveScroll: false,
@@ -233,8 +246,13 @@ export default function UsersIndex() {
     };
 
     const getRoleBadge = (role: string) => {
-        const variant = role === 'super_admin' ? 'default' : role.endsWith('_admin') ? 'secondary' : 'outline';
-        return <Badge variant={variant as any}>{roleLabels[role]}</Badge>;
+        if (role === 'super_admin') {
+            return <Badge variant="default">{roleLabels[role]}</Badge>;
+        } else if (role.endsWith('_admin')) {
+            // Segment admins get yellow/orange badge
+            return <Badge variant="secondary" className="bg-yellow-500 text-white hover:bg-yellow-600">{roleLabels[role]}</Badge>;
+        }
+        return <Badge variant="outline">{roleLabels[role]}</Badge>;
     };
 
     return (
@@ -642,7 +660,13 @@ export default function UsersIndex() {
                                 id="new-password"
                                 type="password"
                                 value={resetPasswordForm.data.password}
-                                onChange={(e) => resetPasswordForm.setData('password', e.target.value)}
+                                onChange={(e) => {
+                                    resetPasswordForm.setData('password', e.target.value);
+                                    // Clear confirmation error when password changes
+                                    if (resetPasswordForm.errors.password_confirmation) {
+                                        resetPasswordForm.clearErrors('password_confirmation');
+                                    }
+                                }}
                                 placeholder="••••••••"
                             />
                             {resetPasswordForm.errors.password && (
@@ -655,9 +679,18 @@ export default function UsersIndex() {
                                 id="confirm-password"
                                 type="password"
                                 value={resetPasswordForm.data.password_confirmation}
-                                onChange={(e) => resetPasswordForm.setData('password_confirmation', e.target.value)}
+                                onChange={(e) => {
+                                    resetPasswordForm.setData('password_confirmation', e.target.value);
+                                    // Clear error when user starts typing
+                                    if (resetPasswordForm.errors.password_confirmation) {
+                                        resetPasswordForm.clearErrors('password_confirmation');
+                                    }
+                                }}
                                 placeholder="••••••••"
                             />
+                            {resetPasswordForm.errors.password_confirmation && (
+                                <p className="text-sm text-red-600">{resetPasswordForm.errors.password_confirmation}</p>
+                            )}
                         </div>
                     </div>
                     <DialogFooter>

@@ -32,6 +32,7 @@ import { Plus, ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock, Monit
 import { route } from 'ziggy-js'
 import type { BreadcrumbItem } from '@/types'
 import { cn } from '@/lib/utils'
+import { usePermissions } from '@/hooks/use-permissions'
 
 interface Timezone {
   id: string
@@ -98,6 +99,10 @@ const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 
 const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
 
 export default function Meetings({ calendarAccounts, hasGoogleAuth }: Props) {
+  const permissions = usePermissions()
+  // Check if user can manage events (super_admin or sales_admin)
+  const canManageEvents = permissions.hasAnyRole(['super_admin', 'sales_admin'])
+  
   const [viewMode, setViewMode] = useState<ViewMode>('week')
   const [currentDate, setCurrentDate] = useState(new Date())
   const [events, setEvents] = useState<CalendarEvent[]>([])
@@ -765,6 +770,22 @@ export default function Meetings({ calendarAccounts, hasGoogleAuth }: Props) {
 
       <Card className="border-0 shadow-none">
         <CardContent className="p-0">
+          {/* Check if there are at least 2 active calendars */}
+          {calendarAccounts.length < 2 ? (
+            <div className="flex flex-col items-center justify-center min-h-[500px] p-8">
+              <div className="text-center space-y-4 max-w-md">
+                <CalendarIcon className="h-16 w-16 text-muted-foreground mx-auto" />
+                <h3 className="text-2xl font-semibold">Calendar is pending to be connected</h3>
+                <p className="text-muted-foreground">
+                  At least 2 active staff calendars are required to use the meetings feature.
+                  {calendarAccounts.length === 1 
+                    ? ' You have 1 calendar connected. Please connect at least 1 more.' 
+                    : ' Please connect at least 2 staff calendars to get started.'}
+                </p>
+              </div>
+            </div>
+          ) : (
+            <>
           {/* Toolbar */}
           <div className="flex items-center justify-between border-b bg-card px-6 py-4">
             <div className="flex items-center gap-4">
@@ -857,11 +878,13 @@ export default function Meetings({ calendarAccounts, hasGoogleAuth }: Props) {
                 </div>
               )}
 
-              {/* New Event Button */}
-              <Button onClick={() => setEventDialogOpen(true)} size="sm">
-                <Plus className="mr-2 h-4 w-4" />
-                New Event
-              </Button>
+              {/* New Event Button - Only for super_admin and sales_admin */}
+              {canManageEvents && (
+                <Button onClick={() => setEventDialogOpen(true)} size="sm">
+                  <Plus className="mr-2 h-4 w-4" />
+                  New Event
+                </Button>
+              )}
             </div>
           </div>
 
@@ -1031,8 +1054,11 @@ export default function Meetings({ calendarAccounts, hasGoogleAuth }: Props) {
                                 {HOURS.map((hour) => (
                                   <div
                                     key={hour}
-                                    className="w-30 flex-shrink-0 border-r last:border-r-0 hover:bg-accent/50 transition-colors cursor-pointer"
-                                    onClick={() => {
+                                    className={cn(
+                                      "w-30 flex-shrink-0 border-r last:border-r-0 transition-colors",
+                                      canManageEvents && "hover:bg-accent/50 cursor-pointer"
+                                    )}
+                                    onClick={canManageEvents ? () => {
                                       const start = new Date(date)
                                       start.setHours(hour, 0, 0, 0)
                                       const end = new Date(date)
@@ -1049,7 +1075,7 @@ export default function Meetings({ calendarAccounts, hasGoogleAuth }: Props) {
                                       })
                                       setSelectedEvent(null)
                                       setEventDialogOpen(true)
-                                    }}
+                                    } : undefined}
                                   />
                                 ))}
                               </div>
@@ -1112,8 +1138,8 @@ export default function Meetings({ calendarAccounts, hasGoogleAuth }: Props) {
                                     }}
                                   >
                                     <div className="h-full overflow-hidden px-2 py-1 text-white">
-                                      <div className="text-xs font-medium break-words line-clamp-2">
-                                        {event.title}
+                                      <div className="text-xs font-medium break-words line-clamp-2" title={event.title}>
+                                        {event.title.length > 50 ? `${event.title.substring(0, 50)}...` : event.title}
                                       </div>
                                       <div className="flex items-center gap-1 mt-0.5">
                                         <Clock className="h-2.5 w-2.5 flex-shrink-0 opacity-90" />
@@ -1176,10 +1202,11 @@ export default function Meetings({ calendarAccounts, hasGoogleAuth }: Props) {
                       key={index}
                       ref={isCurrentDay ? currentDateRef : null}
                       className={cn(
-                        'min-h-[120px] bg-card p-2 transition-colors hover:bg-accent/50 cursor-pointer',
+                        'min-h-[120px] bg-card p-2 transition-colors',
+                        canManageEvents && 'hover:bg-accent/50 cursor-pointer',
                         !inCurrentMonth && 'bg-muted/30 opacity-60'
                       )}
-                      onClick={() => handleDateClick(date)}
+                      onClick={canManageEvents ? () => handleDateClick(date) : undefined}
                     >
                       <div
                         className={cn(
@@ -1197,17 +1224,18 @@ export default function Meetings({ calendarAccounts, hasGoogleAuth }: Props) {
                         {dayEvents.slice(0, 3).map((event) => (
                           <div
                             key={event.id}
-                            className="rounded px-2 py-1 text-xs font-medium text-white transition-all hover:scale-105"
+                            className="rounded px-2 py-1 text-xs font-medium text-white transition-all hover:scale-105 cursor-pointer"
                             style={{ backgroundColor: event.backgroundColor }}
                             onClick={(e) => {
                               e.stopPropagation()
                               handleEventClick(event)
                             }}
+                            title={`${formatEventTime(event.start)} - ${event.title}`}
                           >
                             <div className="flex items-center gap-1">
                               <Clock className="h-3 w-3 flex-shrink-0" />
-                              <span className="line-clamp-1">
-                                {formatEventTime(event.start)} {event.title}
+                              <span className="line-clamp-1 break-all">
+                                {formatEventTime(event.start)} {event.title.length > 30 ? `${event.title.substring(0, 30)}...` : event.title}
                               </span>
                             </div>
                           </div>
@@ -1224,10 +1252,14 @@ export default function Meetings({ calendarAccounts, hasGoogleAuth }: Props) {
               </div>
             </div>
           )}
+            </>
+          )}
         </CardContent>
       </Card>
 
-      {/* Create/Edit Event Dialog */}
+      {/* Create/Edit Event Dialog - Only show if calendars are connected */}
+      {calendarAccounts.length >= 2 && (
+        <>
       <Dialog open={eventDialogOpen} onOpenChange={setEventDialogOpen}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
@@ -1362,15 +1394,15 @@ export default function Meetings({ calendarAccounts, hasGoogleAuth }: Props) {
 
       {/* View Event Dialog */}
       <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-2xl overflow-x-hidden">
           <DialogHeader>
-            <DialogTitle>{selectedEvent?.title}</DialogTitle>
+            <DialogTitle className="break-words pr-8">{selectedEvent?.title}</DialogTitle>
           </DialogHeader>
           {selectedEvent && (
-            <div className="space-y-4">
+            <div className="space-y-4 max-w-full overflow-x-hidden">
               <div>
                 <Label className="text-xs text-muted-foreground">Staff</Label>
-                <p className="text-sm">
+                <p className="text-sm break-words">
                   {selectedEvent.accountName} ({selectedEvent.accountEmail})
                 </p>
               </div>
@@ -1390,16 +1422,21 @@ export default function Meetings({ calendarAccounts, hasGoogleAuth }: Props) {
                   <Label className="text-xs text-muted-foreground">
                     Location
                   </Label>
-                  <p className="text-sm">{selectedEvent.location}</p>
+                  <p className="text-sm break-words">{selectedEvent.location}</p>
                 </div>
               )}
 
               {selectedEvent.description && (
-                <div>
+                <div className="max-w-full overflow-hidden">
                   <Label className="text-xs text-muted-foreground">
                     Description
                   </Label>
-                  <p className="text-sm">{selectedEvent.description}</p>
+                  <Textarea
+                    value={selectedEvent.description}
+                    readOnly
+                    className="w-full min-h-[100px] max-h-[200px] text-sm resize-none overflow-y-auto whitespace-pre-wrap break-words"
+                    style={{ overflowX: 'hidden' }}
+                  />
                 </div>
               )}
 
@@ -1412,7 +1449,7 @@ export default function Meetings({ calendarAccounts, hasGoogleAuth }: Props) {
                     href={selectedEvent.meetLink}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-sm text-blue-600 hover:underline"
+                    className="text-sm text-blue-600 hover:underline break-all"
                   >
                     Join Meeting
                   </a>
@@ -1426,7 +1463,7 @@ export default function Meetings({ calendarAccounts, hasGoogleAuth }: Props) {
                   </Label>
                   <div className="mt-1 flex flex-wrap gap-1">
                     {selectedEvent.attendees.map((attendee, idx) => (
-                      <Badge key={idx} variant="secondary">
+                      <Badge key={idx} variant="secondary" className="break-all max-w-full">
                         {attendee.email}
                       </Badge>
                     ))}
@@ -1435,18 +1472,24 @@ export default function Meetings({ calendarAccounts, hasGoogleAuth }: Props) {
               )}
 
               <DialogFooter className="gap-2">
-                <Button variant="destructive" onClick={handleEventDelete}>
-                  Delete
-                </Button>
-                <Button variant="outline" onClick={handleEditEvent}>
-                  Edit
-                </Button>
+                {canManageEvents && (
+                  <>
+                    <Button variant="destructive" onClick={handleEventDelete}>
+                      Delete
+                    </Button>
+                    <Button variant="outline" onClick={handleEditEvent}>
+                      Edit
+                    </Button>
+                  </>
+                )}
                 <Button onClick={() => setViewDialogOpen(false)}>Close</Button>
               </DialogFooter>
             </div>
           )}
         </DialogContent>
       </Dialog>
+        </>
+      )}
     </AppLayout>
   )
 }

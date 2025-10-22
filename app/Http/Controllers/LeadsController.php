@@ -64,7 +64,64 @@ class LeadsController extends Controller
             });
         }
 
-        $leads = $query->orderBy('updated_at', 'desc')->paginate(50);
+        // Handle sorting
+        $sortBy = $request->input('sort_by', 'updated_at');
+        $sortDirection = $request->input('sort_direction', 'desc');
+        
+        // Map frontend sort column names to database columns/relationships
+        switch ($sortBy) {
+            case 'company_name':
+                $query->join('company', 'leads.company_id', '=', 'company.id')
+                    ->orderBy('company.name', $sortDirection)
+                    ->select('leads.*');
+                break;
+            case 'campaign_name':
+                $query->join('campaigns', 'leads.campaign_id', '=', 'campaigns.id')
+                    ->orderBy('campaigns.name', $sortDirection)
+                    ->select('leads.*');
+                break;
+            case 'agent_name':
+                $query->join('users', 'leads.agent_id', '=', 'users.id')
+                    ->orderBy('users.name', $sortDirection)
+                    ->select('leads.*');
+                break;
+            case 'partner_name':
+                $query->leftJoin('partner', 'leads.partner_id', '=', 'partner.id')
+                    ->orderBy('partner.name', $sortDirection)
+                    ->select('leads.*');
+                break;
+            case 'stage':
+            case 'next_followup_date':
+                $query->orderBy($sortBy, $sortDirection);
+                break;
+            case 'last_activity_date':
+                // Join with a subquery to get the last activity date for each lead
+                $query->leftJoin(
+                    DB::raw('(SELECT lead_id, MAX(created_at) as last_activity_at FROM activity WHERE lead_id IS NOT NULL GROUP BY lead_id) as last_activities'),
+                    'leads.id',
+                    '=',
+                    'last_activities.lead_id'
+                )
+                ->orderBy('last_activities.last_activity_at', $sortDirection)
+                ->select('leads.*');
+                break;
+            case 'contacts_count':
+                // We'll need to add a subquery for counting contacts
+                $query->leftJoin('company as c', 'leads.company_id', '=', 'c.id')
+                    ->leftJoin(
+                        DB::raw('(SELECT company_id, COUNT(*) as contacts_count FROM contact GROUP BY company_id) as contact_counts'),
+                        'leads.company_id',
+                        '=',
+                        'contact_counts.company_id'
+                    )
+                    ->orderBy('contact_counts.contacts_count', $sortDirection)
+                    ->select('leads.*');
+                break;
+            default:
+                $query->orderBy('updated_at', 'desc');
+        }
+
+        $leads = $query->paginate(50);
 
         // Transform leads to match expected structure
         $leadsData = $leads->through(function ($lead) {
@@ -158,6 +215,8 @@ class LeadsController extends Controller
                 'campaign_id' => $request->campaign_id,
                 'stage' => $request->stage,
                 'agent_id' => $request->agent_id,
+                'sort_by' => $request->sort_by,
+                'sort_direction' => $request->sort_direction,
             ],
         ]);
     }
@@ -309,8 +368,8 @@ class LeadsController extends Controller
                 'next_followup_date' => $validated['next_followup_date'] ?? null,
             ]);
 
-            // If stage changed to Closed Win, create Project and Contract
-            if ($newStage === 'Closed Win' && $oldStage !== 'Closed Win') {
+            // If stage changed to Closed Won, create Project and Contract
+            if ($newStage === 'Closed Won' && $oldStage !== 'Closed Won') {
                 $this->createProjectAndContract($lead, $validated['selected_file_ids'] ?? []);
             }
 
@@ -729,13 +788,6 @@ class LeadsController extends Controller
         ]);
 
         $wasPIC = $contact->is_pic;
-        
-        if ($validated['is_pic']) {
-            // Set all other contacts of this company to not PIC
-            Contact::where('company_id', $lead->company_id)
-                ->where('id', '!=', $contact->id)
-                ->update(['is_pic' => false]);
-        }
 
         $contact->update(['is_pic' => $validated['is_pic']]);
 
@@ -771,7 +823,7 @@ class LeadsController extends Controller
 
         $contactName = $contact->name;
         $contactId = $contact->id;
-        $contact->delete();
+        $contact->update(['do_not_contact' => true]);
 
         // Log activity
         $maxId = Activity::max('id') ?? 0;
@@ -782,11 +834,11 @@ class LeadsController extends Controller
             'contact_id' => $contactId,
             'agent_id' => auth()->id(),
             'activity_type' => 'contact_invalidated',
-            'notes' => "Invalidated and removed contact: {$contactName}",
+            'notes' => "Marked contact as do not contact: {$contactName}",
             'created_at' => now()->utc(),
         ]);
 
-        return redirect()->back()->with('success', 'Contact marked as invalid and removed');
+        return redirect()->back()->with('success', 'Contact marked as do not contact');
     }
 
     public function changeStage(Request $request, Lead $lead)

@@ -5,8 +5,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import { Head, router, usePage } from '@inertiajs/react';
-import { useState, useEffect, useRef } from 'react';
-import { Search, ExternalLink, CheckCircle, XCircle, Loader2 } from 'lucide-react';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { Search, ExternalLink, CheckCircle, XCircle, Loader2, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -54,7 +54,10 @@ interface PageProps {
         search?: string;
         interest_level?: string;
         pic_status?: string;
+        sort_by?: string;
+        sort_direction?: string;
     };
+    [key: string]: any;
 }
 
 export default function ContactsIndex() {
@@ -73,6 +76,8 @@ export default function ContactsIndex() {
         search: filters.search || '',
         interest_level: filters.interest_level || 'all',
         pic_status: filters.pic_status || 'all',
+        sort_by: filters.sort_by || 'created_at',
+        sort_direction: filters.sort_direction || 'desc',
     });
 
     const [searchDebounce, setSearchDebounce] = useState<NodeJS.Timeout | null>(null);
@@ -108,6 +113,8 @@ export default function ContactsIndex() {
         if (localFilters.search) params.search = localFilters.search;
         if (localFilters.interest_level && localFilters.interest_level !== 'all') params.interest_level = localFilters.interest_level;
         if (localFilters.pic_status && localFilters.pic_status !== 'all') params.pic_status = localFilters.pic_status;
+        if (localFilters.sort_by) params.sort_by = localFilters.sort_by;
+        if (localFilters.sort_direction) params.sort_direction = localFilters.sort_direction;
 
         router.get('/sales/contacts', params, {
             preserveState: true,
@@ -115,7 +122,7 @@ export default function ContactsIndex() {
         });
     };
 
-    const loadMoreContacts = () => {
+    const loadMoreContacts = useCallback(() => {
         if (loadingRef.current || !hasMorePages || isLoadingMore) return;
 
         loadingRef.current = true;
@@ -128,6 +135,8 @@ export default function ContactsIndex() {
         if (localFilters.search) params.search = localFilters.search;
         if (localFilters.interest_level && localFilters.interest_level !== 'all') params.interest_level = localFilters.interest_level;
         if (localFilters.pic_status && localFilters.pic_status !== 'all') params.pic_status = localFilters.pic_status;
+        if (localFilters.sort_by) params.sort_by = localFilters.sort_by;
+        if (localFilters.sort_direction) params.sort_direction = localFilters.sort_direction;
 
         router.get('/sales/contacts', params, {
             preserveState: true,
@@ -146,7 +155,7 @@ export default function ContactsIndex() {
                 loadingRef.current = false;
             },
         });
-    };
+    }, [hasMorePages, isLoadingMore, currentPage, localFilters]);
 
     // Infinite scroll handler
     useEffect(() => {
@@ -174,7 +183,7 @@ export default function ContactsIndex() {
         setTimeout(checkInitialLoad, 100);
 
         return () => container.removeEventListener('scroll', handleScroll);
-    }, [hasMorePages, isLoadingMore, currentPage, contacts.length]);
+    }, [hasMorePages, isLoadingMore, currentPage, contacts.length, loadMoreContacts]);
 
     const handleFilterChange = (key: string, value: string) => {
         const newFilters = { ...localFilters, [key]: value };
@@ -185,6 +194,8 @@ export default function ContactsIndex() {
             if (newFilters.search) params.search = newFilters.search;
             if (newFilters.interest_level && newFilters.interest_level !== 'all') params.interest_level = newFilters.interest_level;
             if (newFilters.pic_status && newFilters.pic_status !== 'all') params.pic_status = newFilters.pic_status;
+            if (newFilters.sort_by) params.sort_by = newFilters.sort_by;
+            if (newFilters.sort_direction) params.sort_direction = newFilters.sort_direction;
 
             router.get('/sales/contacts', params, {
                 preserveState: false,
@@ -198,11 +209,52 @@ export default function ContactsIndex() {
             search: '',
             interest_level: 'all',
             pic_status: 'all',
+            sort_by: 'created_at',
+            sort_direction: 'desc',
         });
-        router.get('/contacts', {}, {
+        router.get('/sales/contacts', {}, {
             preserveState: false,
             preserveScroll: false,
         });
+    };
+
+    const handleSort = (column: string) => {
+        let newDirection: 'asc' | 'desc' = 'asc';
+        
+        // If clicking the same column, toggle direction
+        if (localFilters.sort_by === column) {
+            newDirection = localFilters.sort_direction === 'asc' ? 'desc' : 'asc';
+        }
+        
+        const newFilters = {
+            ...localFilters,
+            sort_by: column,
+            sort_direction: newDirection
+        };
+        
+        setLocalFilters(newFilters);
+        
+        // Apply sort immediately
+        const params: Record<string, string> = {};
+        if (newFilters.search) params.search = newFilters.search;
+        if (newFilters.interest_level && newFilters.interest_level !== 'all') params.interest_level = newFilters.interest_level;
+        if (newFilters.pic_status && newFilters.pic_status !== 'all') params.pic_status = newFilters.pic_status;
+        params.sort_by = column;
+        params.sort_direction = newDirection;
+
+        router.get('/sales/contacts', params, {
+            preserveState: true,
+            preserveScroll: true,
+        });
+    };
+
+    const getSortIcon = (column: string) => {
+        if (localFilters.sort_by !== column) {
+            return <ArrowUpDown className="ml-2 h-4 w-4 text-gray-400" />;
+        }
+        return localFilters.sort_direction === 'asc' 
+            ? <ArrowUp className="ml-2 h-4 w-4 text-blue-600" />
+            : <ArrowDown className="ml-2 h-4 w-4 text-blue-600" />;
     };
 
     const getInterestColor = (level: string) => {
@@ -277,17 +329,81 @@ export default function ContactsIndex() {
                 <div className="flex-1 overflow-hidden rounded-lg border flex flex-col">
                     <div ref={scrollContainerRef} className="overflow-auto flex-1">
                         <Table>
-                        <TableHeader>
+                        <TableHeader className="sticky top-0 bg-white z-10">
                             <TableRow>
-                                <TableHead>Name</TableHead>
-                                <TableHead>Title</TableHead>
-                                <TableHead>Company</TableHead>
-                                <TableHead>Phone 1</TableHead>
-                                <TableHead>Phone 2</TableHead>
-                                <TableHead>Email</TableHead>
+                                <TableHead>
+                                    <button 
+                                        onClick={() => handleSort('name')}
+                                        className="flex items-center hover:text-blue-600 transition-colors font-medium"
+                                    >
+                                        Name
+                                        {getSortIcon('name')}
+                                    </button>
+                                </TableHead>
+                                <TableHead>
+                                    <button 
+                                        onClick={() => handleSort('title')}
+                                        className="flex items-center hover:text-blue-600 transition-colors font-medium"
+                                    >
+                                        Title
+                                        {getSortIcon('title')}
+                                    </button>
+                                </TableHead>
+                                <TableHead>
+                                    <button 
+                                        onClick={() => handleSort('company_name')}
+                                        className="flex items-center hover:text-blue-600 transition-colors font-medium"
+                                    >
+                                        Company
+                                        {getSortIcon('company_name')}
+                                    </button>
+                                </TableHead>
+                                <TableHead>
+                                    <button 
+                                        onClick={() => handleSort('phone1')}
+                                        className="flex items-center hover:text-blue-600 transition-colors font-medium"
+                                    >
+                                        Phone 1
+                                        {getSortIcon('phone1')}
+                                    </button>
+                                </TableHead>
+                                <TableHead>
+                                    <button 
+                                        onClick={() => handleSort('phone2')}
+                                        className="flex items-center hover:text-blue-600 transition-colors font-medium"
+                                    >
+                                        Phone 2
+                                        {getSortIcon('phone2')}
+                                    </button>
+                                </TableHead>
+                                <TableHead>
+                                    <button 
+                                        onClick={() => handleSort('email')}
+                                        className="flex items-center hover:text-blue-600 transition-colors font-medium"
+                                    >
+                                        Email
+                                        {getSortIcon('email')}
+                                    </button>
+                                </TableHead>
                                 <TableHead>LinkedIn</TableHead>
-                                <TableHead>PIC</TableHead>
-                                <TableHead>Interest Level</TableHead>
+                                <TableHead>
+                                    <button 
+                                        onClick={() => handleSort('is_pic')}
+                                        className="flex items-center hover:text-blue-600 transition-colors font-medium"
+                                    >
+                                        PIC
+                                        {getSortIcon('is_pic')}
+                                    </button>
+                                </TableHead>
+                                <TableHead>
+                                    <button 
+                                        onClick={() => handleSort('interest_level')}
+                                        className="flex items-center hover:text-blue-600 transition-colors font-medium"
+                                    >
+                                        Interest Level
+                                        {getSortIcon('interest_level')}
+                                    </button>
+                                </TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -300,9 +416,9 @@ export default function ContactsIndex() {
                             ) : (
                                 contacts.map((contact) => (
                                     <TableRow key={contact.id}>
-                                        <TableCell className="font-medium">{contact.name}</TableCell>
-                                        <TableCell>{contact.title || '—'}</TableCell>
-                                        <TableCell>{contact.company?.name || '—'}</TableCell>
+                                        <TableCell className="font-medium max-w-[200px] whitespace-normal break-words">{contact.name}</TableCell>
+                                        <TableCell className="max-w-[200px] whitespace-normal break-words">{contact.title || '—'}</TableCell>
+                                        <TableCell className="max-w-[250px] whitespace-normal break-words">{contact.company?.name || '—'}</TableCell>
                                         <TableCell>{contact.phone1 || '—'}</TableCell>
                                         <TableCell>{contact.phone2 || '—'}</TableCell>
                                         <TableCell>
