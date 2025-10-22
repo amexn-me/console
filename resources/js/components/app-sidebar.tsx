@@ -11,16 +11,16 @@ import { useMemo } from 'react';
 
 const allNavGroups: (NavGroup & { requiredPermission?: string })[] = [
     // Super Admin only - Cockpit (no category)
-    {
-        items: [
-            {
-                title: 'Cockpit',
-                href: '/cockpit',
-                icon: Gauge,
-            },
-        ],
-        requiredPermission: 'isSuperAdmin',
-    },
+    // {
+    //     items: [
+    //         {
+    //             title: 'Cockpit',
+    //             href: '/cockpit',
+    //             icon: Gauge,
+    //         },
+    //     ],
+    //     requiredPermission: 'isSuperAdmin',
+    // },
     // For all users - no category label
     {
         items: [

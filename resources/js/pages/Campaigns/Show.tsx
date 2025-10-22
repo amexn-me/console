@@ -387,13 +387,13 @@ export default function CampaignsShow() {
                             <List className="h-4 w-4" />
                             Leads ({analytics.total_leads})
                         </TabsTrigger>
-                        <TabsTrigger value="lead-analysis" className="gap-2">
-                            <AlertTriangle className="h-4 w-4" />
-                            Lead Analysis
-                        </TabsTrigger>
                         <TabsTrigger value="performance" className="gap-2">
                             <Award className="h-4 w-4" />
                             Performance Analysis
+                        </TabsTrigger>
+                        <TabsTrigger value="lead-analysis" className="gap-2">
+                            <AlertTriangle className="h-4 w-4" />
+                            Lead Analysis
                         </TabsTrigger>
                     </TabsList>
 
