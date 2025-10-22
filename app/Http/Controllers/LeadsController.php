@@ -17,6 +17,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
+use Carbon\Carbon;
 
 class LeadsController extends Controller
 {
@@ -91,8 +92,18 @@ class LeadsController extends Controller
                     ->select('leads.*');
                 break;
             case 'stage':
-            case 'next_followup_date':
                 $query->orderBy($sortBy, $sortDirection);
+                break;
+            case 'next_followup_date':
+                // Join with a subquery to get the earliest next followup from contacts
+                $query->leftJoin(
+                    DB::raw('(SELECT company_id, MIN(next_followup_datetime) as earliest_followup FROM contact WHERE next_followup_datetime IS NOT NULL AND do_not_contact = false GROUP BY company_id) as contact_followups'),
+                    'leads.company_id',
+                    '=',
+                    'contact_followups.company_id'
+                )
+                ->orderBy('contact_followups.earliest_followup', $sortDirection)
+                ->select('leads.*');
                 break;
             case 'last_activity_date':
                 // Join with a subquery to get the last activity date for each lead
@@ -130,6 +141,13 @@ class LeadsController extends Controller
                 ->orderBy('created_at', 'desc')
                 ->first();
             
+            // Get earliest next followup date from contacts of this company
+            $nextFollowupContact = Contact::where('company_id', $lead->company_id)
+                ->whereNotNull('next_followup_datetime')
+                ->where('do_not_contact', false)
+                ->orderBy('next_followup_datetime', 'asc')
+                ->first();
+            
             return [
                 'id' => $lead->id,
                 'campaign_id' => $lead->campaign_id,
@@ -142,7 +160,7 @@ class LeadsController extends Controller
                 'agent' => $lead->agent,
                 'partner_id' => $lead->partner_id,
                 'partner' => $lead->partner,
-                'next_followup_date' => $lead->next_followup_date,
+                'next_followup_date' => $nextFollowupContact ? $nextFollowupContact->next_followup_date : null,
                 'last_activity_date' => $lastActivity ? $lastActivity->created_at : null,
                 'files' => $lead->files,
                 'proposal_currency' => $lead->proposal_currency,
@@ -348,6 +366,7 @@ class LeadsController extends Controller
         $validated = $request->validate([
             'conversation_method' => 'required|string',
             'conversation_connected' => 'nullable|string',
+            'contact_id' => 'nullable|integer|exists:contact,id',
             'next_followup_date' => 'nullable|date',
             'followup_time' => 'nullable|string',
             'lead_stage' => 'required|string',
@@ -373,12 +392,32 @@ class LeadsController extends Controller
                 $this->createProjectAndContract($lead, $validated['selected_file_ids'] ?? []);
             }
 
+            // Update contact with followup datetime if provided
+            if (!empty($validated['contact_id'])) {
+                $contact = Contact::find($validated['contact_id']);
+                if ($contact && $contact->company_id === $lead->company_id) {
+                    $followupDatetime = null;
+                    if (!empty($validated['next_followup_date'])) {
+                        $followupTime = $validated['followup_time'] ?? '09:00';
+                        $followupDatetime = Carbon::parse($validated['next_followup_date'] . ' ' . $followupTime);
+                    }
+                    
+                    $contact->update([
+                        'next_followup_date' => $validated['next_followup_date'] ?? null,
+                        'next_followup_datetime' => $followupDatetime,
+                        'followup_completed' => false,
+                        'reminder_sent' => false,
+                    ]);
+                }
+            }
+
             // Log activity
             $maxId = Activity::max('id') ?? 0;
             Activity::create([
                 'id' => $maxId + 1,
                 'company_id' => $lead->company_id,
                 'lead_id' => $lead->id,
+                'contact_id' => $validated['contact_id'] ?? null,
                 'agent_id' => auth()->id(),
                 'activity_type' => 'update',
                 'conversation_method' => $validated['conversation_method'],

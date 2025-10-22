@@ -52,5 +52,23 @@ class Contact extends Model
     {
         return $this->hasMany(Activity::class, 'contact_id');
     }
+
+    // Get the agent assigned to this contact through the lead
+    public function getAgentAttribute()
+    {
+        // Find the lead associated with this contact's company
+        $lead = Lead::where('company_id', $this->company_id)->first();
+        return $lead ? $lead->agent : null;
+    }
+
+    // Scope to filter contacts by agent
+    public function scopeForAgent($query, $agentId)
+    {
+        return $query->whereHas('company', function($q) use ($agentId) {
+            $q->whereHas('leads', function($leadQuery) use ($agentId) {
+                $leadQuery->where('agent_id', $agentId);
+            });
+        });
+    }
 }
 

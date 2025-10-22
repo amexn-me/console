@@ -36,6 +36,8 @@ interface Contact {
     is_pic: boolean;
     interest_level: string;
     do_not_contact: boolean;
+    next_followup_date: string | null;
+    followup_time: string | null;
 }
 
 interface Campaign {
@@ -185,6 +187,7 @@ export default function LeadsShow() {
     const updateForm = useForm({
         conversation_method: '',
         conversation_connected: '',
+        contact_id: null as number | null,
         next_followup_date: '',
         followup_time: '',
         lead_stage: lead?.stage || '',
@@ -315,6 +318,7 @@ export default function LeadsShow() {
             updateForm.setData({
                 conversation_method: '',
                 conversation_connected: '',
+                contact_id: contact.id,
                 next_followup_date: '',
                 followup_time: '',
                 lead_stage: lead?.stage || '',
@@ -327,6 +331,7 @@ export default function LeadsShow() {
             updateForm.setData({
                 conversation_method: '',
                 conversation_connected: '',
+                contact_id: null,
                 next_followup_date: '',
                 followup_time: '',
                 lead_stage: lead?.stage || '',
@@ -1175,7 +1180,7 @@ export default function LeadsShow() {
 
                                                 return (
                                                     <div key={level} className="flex flex-col">
-                                                        <div className={`rounded-t-lg border-t border-x p-3 ${getInterestLevelColumnColor(level)}`}>
+                                                        <div className={`rounded-t-lg border-t-2 border-x-2 p-3 ${getInterestLevelColumnColor(level)}`}>
                                                             <h3 className="font-semibold text-center">
                                                                 {level} ({contactsInLevel.length})
                                                             </h3>
@@ -1185,7 +1190,7 @@ export default function LeadsShow() {
                                                                 <div
                                                                     ref={provided.innerRef}
                                                                     {...provided.droppableProps}
-                                                                    className={`flex-1 border rounded-b-lg p-3 space-y-3 min-h-[200px] ${
+                                                                    className={`flex-1 border-2 rounded-b-lg p-3 space-y-3 min-h-[200px] ${
                                                                         snapshot.isDraggingOver
                                                                             ? 'bg-gray-100'
                                                                             : 'bg-white'
@@ -1202,7 +1207,11 @@ export default function LeadsShow() {
                                                                                     ref={provided.innerRef}
                                                                                     {...provided.draggableProps}
                                                                                     {...provided.dragHandleProps}
-                                                                                    className={`border rounded-lg p-3 bg-white ${
+                                                                                    className={`relative border-2 ${
+                                                                                        contact.next_followup_date 
+                                                                                            ? 'border-blue-500' 
+                                                                                            : 'border-gray-300'
+                                                                                    } rounded-lg p-3 bg-white ${
                                                                                         snapshot.isDragging
                                                                                             ? 'shadow-lg'
                                                                                             : 'hover:shadow-md'
@@ -1354,6 +1363,14 @@ export default function LeadsShow() {
                                                                                             </Button>
                                                                                         </div>
                                                                                     </div>
+                                                                                    
+                                                                                    {/* Follow-up badge on bottom border */}
+                                                                                    {contact.next_followup_date && (
+                                                                                        <div className="absolute -bottom-2 left-1/2 transform -translate-x-1/2 bg-blue-500 text-white px-3 py-1 rounded-full shadow-md text-xs font-medium whitespace-nowrap">
+                                                                                            Follow-up: {new Date(contact.next_followup_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                                                                                            {contact.followup_time && ` at ${contact.followup_time}`}
+                                                                                        </div>
+                                                                                    )}
                                                                                 </div>
                                                                             )}
                                                                         </Draggable>

@@ -164,54 +164,55 @@ export default function Dashboard() {
                                 </div>
                             ) : (
                                 <div className="space-y-4 max-h-[600px] overflow-y-auto">
-                                    {followups.overdue.map((activity) => (
+                                    {followups.overdue.map((followup) => (
                                         <div
-                                            key={activity.id}
+                                            key={followup.id}
                                             className="p-4 rounded-lg border border-red-200 bg-red-50 dark:border-red-900 dark:bg-red-950/20"
                                         >
                                             <div className="flex items-start justify-between gap-2 mb-2">
                                                 <div className="flex-1">
-                                                    {activity.company && (
-                                                        <Link
-                                                            href={`/sales/companies/${activity.company.id}`}
-                                                            className="font-semibold text-red-700 dark:text-red-300 hover:underline"
-                                                        >
-                                                            {activity.company.company_name}
-                                                        </Link>
-                                                    )}
-                                                    {activity.lead?.campaign && (
-                                                        <Badge variant="outline" className="ml-2 text-xs">
-                                                            {activity.lead.campaign.name}
+                                                    <div className="font-semibold text-red-700 dark:text-red-300">
+                                                        {followup.company_name}
+                                                    </div>
+                                                    {followup.campaign_name && (
+                                                        <Badge variant="outline" className="mt-1 text-xs">
+                                                            {followup.campaign_name}
                                                         </Badge>
                                                     )}
                                                 </div>
                                                 <Badge variant="destructive" className="text-xs">
-                                                    {getRelativeTime(activity.next_followup_datetime)}
+                                                    {getRelativeTime(followup.next_followup_datetime)}
                                                 </Badge>
                                             </div>
                                             <div className="space-y-1 text-sm">
                                                 <div className="flex items-center gap-2 text-muted-foreground">
                                                     <CalendarClock className="h-3 w-3" />
                                                     <span>
-                                                        {format(new Date(activity.next_followup_datetime), 'MMM dd, yyyy h:mm a')}
+                                                        {format(new Date(followup.next_followup_datetime), 'MMM dd, yyyy h:mm a')}
                                                     </span>
                                                 </div>
-                                                {activity.activity_type && (
+                                                <div className="text-xs">
+                                                    <span className="font-medium">Contact:</span> {followup.contact_name}
+                                                </div>
+                                                <div className="text-xs">
+                                                    <span className="font-medium">Agent:</span> {followup.agent_name}
+                                                </div>
+                                                {followup.interest_level && (
                                                     <div className="text-xs">
-                                                        <span className="font-medium">Type:</span> {activity.activity_type}
-                                                    </div>
-                                                )}
-                                                {activity.remarks && (
-                                                    <div className="text-xs mt-2">
-                                                        <span className="font-medium">Remarks:</span> {activity.remarks}
-                                                    </div>
-                                                )}
-                                                {activity.agent && (
-                                                    <div className="text-xs">
-                                                        <span className="font-medium">Agent:</span> {activity.agent.name}
+                                                        <span className="font-medium">Interest:</span> {followup.interest_level}
                                                     </div>
                                                 )}
                                             </div>
+                                            {followup.lead_id && (
+                                                <div className="mt-3">
+                                                    <Link
+                                                        href={`/sales/leads/${followup.lead_id}`}
+                                                        className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-red-600 text-white hover:bg-red-700 h-8 px-3"
+                                                    >
+                                                        View Lead
+                                                    </Link>
+                                                </div>
+                                            )}
                                         </div>
                                     ))}
                                 </div>
@@ -238,55 +239,56 @@ export default function Dashboard() {
                                 </div>
                             ) : (
                                 <div className="space-y-4 max-h-[600px] overflow-y-auto">
-                                    {followups.upcoming.map((activity) => (
+                                    {followups.upcoming.map((followup) => (
                                         <div
-                                            key={activity.id}
+                                            key={followup.id}
                                             className="p-4 rounded-lg border"
                                         >
                                             <div className="flex items-start justify-between gap-2 mb-2">
                                                 <div className="flex-1">
-                                                    {activity.company && (
-                                                        <Link
-                                                            href={`/sales/companies/${activity.company.id}`}
-                                                            className="font-semibold hover:underline"
-                                                        >
-                                                            {activity.company.company_name}
-                                                        </Link>
-                                                    )}
-                                                    {activity.lead?.campaign && (
-                                                        <Badge variant="outline" className="ml-2 text-xs">
-                                                            {activity.lead.campaign.name}
+                                                    <div className="font-semibold">
+                                                        {followup.company_name}
+                                                    </div>
+                                                    {followup.campaign_name && (
+                                                        <Badge variant="outline" className="mt-1 text-xs">
+                                                            {followup.campaign_name}
                                                         </Badge>
                                                     )}
                                                 </div>
                                                 <Badge variant="secondary" className="text-xs">
-                                                    {getRelativeTime(activity.next_followup_datetime)}
+                                                    {getRelativeTime(followup.next_followup_datetime)}
                                                 </Badge>
                                             </div>
                                             <div className="space-y-1 text-sm">
                                                 <div className="flex items-center gap-2 text-muted-foreground">
                                                     <CalendarClock className="h-3 w-3" />
                                                     <span>
-                                                        {format(new Date(activity.next_followup_datetime), 'MMM dd, yyyy h:mm a')}
+                                                        {format(new Date(followup.next_followup_datetime), 'MMM dd, yyyy h:mm a')}
                                                     </span>
                                                 </div>
-                                                {activity.activity_type && (
+                                                <div className="text-xs">
+                                                    <span className="font-medium">Contact:</span> {followup.contact_name}
+                                                </div>
+                                                <div className="text-xs">
+                                                    <span className="font-medium">Agent:</span> {followup.agent_name}
+                                                </div>
+                                                {followup.interest_level && (
                                                     <div className="text-xs">
-                                                        <span className="font-medium">Type:</span> {activity.activity_type}
+                                                        <span className="font-medium">Interest:</span> {followup.interest_level}
                                                     </div>
                                                 )}
-                                                {activity.remarks && (
-                                                    <div className="text-xs mt-2">
-                                                        <span className="font-medium">Remarks:</span> {activity.remarks}
-                    </div>
-                                                )}
-                                                {activity.agent && (
-                                                    <div className="text-xs">
-                                                        <span className="font-medium">Agent:</span> {activity.agent.name}
-                    </div>
-                                                )}
-                    </div>
-                </div>
+                                            </div>
+                                            {followup.lead_id && (
+                                                <div className="mt-3">
+                                                    <Link
+                                                        href={`/sales/leads/${followup.lead_id}`}
+                                                        className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-8 px-3"
+                                                    >
+                                                        View Lead
+                                                    </Link>
+                                                </div>
+                                            )}
+                                        </div>
                                     ))}
                                 </div>
                             )}

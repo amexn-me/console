@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Models\Company;
 use App\Models\Lead;
 use App\Models\Activity;
+use App\Models\Contact;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Maatwebsite\Excel\Facades\Excel;
@@ -194,7 +195,7 @@ class CampaignsController extends Controller
             // Get all non-closed leads with their last activity
             $staleLead = Lead::where('campaign_id', $campaign->id)
                 ->whereNotIn('stage', ['Closed Won', 'Closed Lost', 'Disqualified'])
-                ->with(['company', 'agent'])
+                ->with(['company.contacts', 'agent'])
                 ->get()
                 ->map(function($lead) use ($now) {
                     // Get last activity for this lead
@@ -206,6 +207,13 @@ class CampaignsController extends Controller
                     // Calculate days as integer - always rounds down
                     $daysSinceActivity = (int) floor($now->diffInDays($lastActivityDate, false));
                     
+                    // Get earliest next followup date from contacts
+                    $nextFollowupContact = Contact::where('company_id', $lead->company_id)
+                        ->whereNotNull('next_followup_datetime')
+                        ->where('do_not_contact', false)
+                        ->orderBy('next_followup_datetime', 'asc')
+                        ->first();
+                    
                     return [
                         'lead_id' => $lead->id,
                         'company_name' => $lead->company ? $lead->company->name : 'Unknown',
@@ -215,7 +223,7 @@ class CampaignsController extends Controller
                         'agent_name' => $lead->agent ? $lead->agent->name : 'Unassigned',
                         'last_activity_date' => $lastActivityDate,
                         'days_since_activity' => abs($daysSinceActivity),
-                        'next_followup_date' => $lead->next_followup_date,
+                        'next_followup_date' => $nextFollowupContact ? $nextFollowupContact->next_followup_date : null,
                         'updated_at' => $lead->updated_at,
                     ];
                 })
