@@ -60,8 +60,8 @@ interface Lead {
     company_id: number;
     company: Company;
     stage: string;
-    agent_id: number;
-    agent: Agent;
+    agent_id: number | null;
+    agent: Agent | null;
     proposal_one_time_fees: number | null;
     proposal_annual_subscription: number | null;
     proposal_currency: string | null;
@@ -823,7 +823,7 @@ export default function LeadsShow() {
                                     
                                     {/* Agent Name */}
                                     <p className="text-3xl font-semibold text-gray-900">
-                                        {lead.agent.name}
+                                        {lead.agent?.name || 'Team'}
                                     </p>
                                     
                                     {/* Illustration */}
@@ -959,7 +959,7 @@ export default function LeadsShow() {
                                 <Label className="text-xs text-gray-600 uppercase">Agent</Label>
                                 {!isEditingAgent ? (
                                     <div className="mt-2 flex items-center gap-2">
-                                        <p className="font-medium">{lead.agent.name}</p>
+                                        <p className="font-medium">{lead.agent?.name || 'No Agent Assigned'}</p>
                                         {permissions.isAdmin && (
                                             <Button
                                                 variant="ghost"
@@ -999,7 +999,7 @@ export default function LeadsShow() {
                                             size="sm"
                                             onClick={() => {
                                                 setIsEditingAgent(false);
-                                                agentChangeForm.setData('new_agent_id', lead.agent_id.toString());
+                                                agentChangeForm.setData('new_agent_id', lead.agent_id?.toString() || '');
                                             }}
                                         >
                                             <X className="h-3 w-3" />

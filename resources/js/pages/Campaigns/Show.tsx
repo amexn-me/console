@@ -12,7 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import { Head, router, useForm, usePage } from '@inertiajs/react';
-import { ArrowLeft, Plus, Trash2, Pencil, TrendingUp, Users as UsersIcon, Target, Search, X, Download, BarChart3, List, ChevronLeft, ChevronRight, Award, Activity as ActivityIcon, AlertTriangle, Clock, FileSpreadsheet } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Pencil, TrendingUp, Users as UsersIcon, Target, Search, X, Download, BarChart3, List, ChevronLeft, ChevronRight, Award, Activity as ActivityIcon, AlertTriangle, Clock, FileSpreadsheet, Loader2 } from 'lucide-react';
 import { useState } from 'react';
 import { usePermissions } from '@/hooks/use-permissions';
 import { SalesFunnelChart } from '@/components/SalesFunnelChart';
@@ -106,6 +106,7 @@ interface StaleLead {
 }
 
 interface StaleLeadsData {
+    oldest_10?: StaleLead[];
     over_30_days: StaleLead[];
     over_14_days: StaleLead[];
     over_7_days: StaleLead[];
@@ -121,7 +122,7 @@ interface Analytics {
     stale_leads?: StaleLeadsData;
 }
 
-interface PageProps {
+type PageProps = {
     campaign: Campaign;
     leads: {
         data: Lead[];
@@ -133,7 +134,7 @@ interface PageProps {
     analytics: Analytics;
     companies: Company[];
     users: User[];
-}
+} & Record<string, any>;
 
 export default function CampaignsShow() {
     const { campaign, leads: initialLeads, analytics: initialAnalytics, companies, users } = usePage<PageProps>().props;
@@ -172,8 +173,19 @@ export default function CampaignsShow() {
         e.preventDefault();
         post(route('campaigns.companies.add', campaign.id), {
             preserveScroll: true,
-            onSuccess: () => {
-                setIsAddCompanyDialogOpen(false);
+            onSuccess: (page) => {
+                // Update local state with new data from the response
+                const newAnalytics = page.props.analytics as Analytics;
+                const newLeads = page.props.leads as typeof initialLeads;
+                
+                if (newAnalytics) {
+                    setAnalytics(newAnalytics);
+                }
+                if (newLeads) {
+                    setLeads(newLeads);
+                }
+                
+                setIsAddCompanyDrawerOpen(false);
                 reset();
             },
         });
@@ -183,6 +195,18 @@ export default function CampaignsShow() {
         if (confirm('Are you sure you want to remove this company from the campaign?')) {
             router.delete(route('campaigns.companies.remove', [campaign.id, leadId]), {
                 preserveScroll: true,
+                onSuccess: (page) => {
+                    // Update local state with new data from the response
+                    const newAnalytics = page.props.analytics as Analytics;
+                    const newLeads = page.props.leads as typeof initialLeads;
+                    
+                    if (newAnalytics) {
+                        setAnalytics(newAnalytics);
+                    }
+                    if (newLeads) {
+                        setLeads(newLeads);
+                    }
+                },
             });
         }
     };
@@ -227,7 +251,18 @@ export default function CampaignsShow() {
             stage: bulkStage,
         }, {
             preserveScroll: true,
-            onSuccess: () => {
+            onSuccess: (page) => {
+                // Update local state with new data from the response
+                const newAnalytics = page.props.analytics as Analytics;
+                const newLeads = page.props.leads as typeof initialLeads;
+                
+                if (newAnalytics) {
+                    setAnalytics(newAnalytics);
+                }
+                if (newLeads) {
+                    setLeads(newLeads);
+                }
+                
                 setIsAddCompanyDrawerOpen(false);
                 setSelectedCompanies([]);
                 setSearchQuery('');

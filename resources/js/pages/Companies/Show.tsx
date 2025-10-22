@@ -3,10 +3,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
-import { Head, router, usePage } from '@inertiajs/react';
-import { User, Users, Briefcase, FileText, Activity, Calendar, Mail, Phone, Linkedin, ExternalLink, Download } from 'lucide-react';
+import { Head, router, usePage, useForm } from '@inertiajs/react';
+import { User, Users, Briefcase, FileText, Activity, Calendar, Mail, Phone, Linkedin, ExternalLink, Download, Plus, UserPlus } from 'lucide-react';
 import { useState } from 'react';
 import { format } from 'date-fns';
 
@@ -125,6 +130,29 @@ interface PageProps {
 export default function CompaniesShow() {
     const { company } = usePage<PageProps>().props;
     const [activeTab, setActiveTab] = useState('overview');
+    const [isAddContactDialogOpen, setIsAddContactDialogOpen] = useState(false);
+
+    const addContactForm = useForm<{
+        company_id: string;
+        name: string;
+        title: string;
+        email: string;
+        phone1: string;
+        phone2: string;
+        linkedin_url: string;
+        is_pic: boolean;
+        interest_level: string;
+    }>({
+        company_id: company.id.toString(),
+        name: '',
+        title: '',
+        email: '',
+        phone1: '',
+        phone2: '',
+        linkedin_url: '',
+        is_pic: false,
+        interest_level: 'Cold',
+    });
 
     const breadcrumbs: BreadcrumbItem[] = [
         {
@@ -191,6 +219,20 @@ export default function CompaniesShow() {
 
     const handleDownloadFile = (file: CompanyFile) => {
         window.open(`/storage/${file.file_path}`, '_blank');
+    };
+
+    const handleAddContact = (e: React.FormEvent) => {
+        e.preventDefault();
+        addContactForm.post('/sales/contacts', {
+            preserveScroll: true,
+            onSuccess: () => {
+                setIsAddContactDialogOpen(false);
+                addContactForm.reset();
+                addContactForm.setData('company_id', company.id.toString());
+                // Reload the page to show the new contact
+                router.reload({ only: ['company'] });
+            },
+        });
     };
 
     return (
@@ -436,12 +478,28 @@ export default function CompaniesShow() {
                     <TabsContent value="contacts" className="space-y-4">
                         <Card>
                             <CardHeader>
-                                <CardTitle>Contacts</CardTitle>
-                                <CardDescription>People associated with this company</CardDescription>
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <CardTitle>Contacts</CardTitle>
+                                        <CardDescription>People associated with this company</CardDescription>
+                                    </div>
+                                    <Button onClick={() => setIsAddContactDialogOpen(true)}>
+                                        <Plus className="mr-2 h-4 w-4" />
+                                        Add Contact
+                                    </Button>
+                                </div>
                             </CardHeader>
                             <CardContent>
                                 {company.contacts.length === 0 ? (
-                                    <p className="text-center text-muted-foreground py-8">No contacts found</p>
+                                    <div className="flex flex-col items-center justify-center py-12 text-center">
+                                        <UserPlus className="h-12 w-12 text-muted-foreground mb-4" />
+                                        <h3 className="text-lg font-semibold mb-2">No contacts yet</h3>
+                                        <p className="text-muted-foreground mb-4">Get started by adding your first contact for this company.</p>
+                                        <Button onClick={() => setIsAddContactDialogOpen(true)}>
+                                            <Plus className="mr-2 h-4 w-4" />
+                                            Add First Contact
+                                        </Button>
+                                    </div>
                                 ) : (
                                     <div className="space-y-4">
                                         {company.contacts.map((contact) => (
@@ -714,6 +772,147 @@ export default function CompaniesShow() {
                     </TabsContent>
                 </Tabs>
             </div>
+
+            {/* Add Contact Dialog */}
+            <Dialog open={isAddContactDialogOpen} onOpenChange={setIsAddContactDialogOpen}>
+                <DialogContent className="max-h-[90vh] overflow-y-auto">
+                    <DialogHeader>
+                        <DialogTitle>Add New Contact to {company.name}</DialogTitle>
+                        <DialogDescription>
+                            Create a new contact for this company.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <form onSubmit={handleAddContact} className="space-y-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="name">Name *</Label>
+                            <Input
+                                id="name"
+                                value={addContactForm.data.name}
+                                onChange={(e) => addContactForm.setData('name', e.target.value)}
+                                placeholder="Enter contact name"
+                                required
+                            />
+                            {addContactForm.errors.name && (
+                                <p className="text-sm text-red-500">{addContactForm.errors.name}</p>
+                            )}
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label htmlFor="title">Title</Label>
+                            <Input
+                                id="title"
+                                value={addContactForm.data.title}
+                                onChange={(e) => addContactForm.setData('title', e.target.value)}
+                                placeholder="Job title (e.g., CEO, CTO)"
+                            />
+                            {addContactForm.errors.title && (
+                                <p className="text-sm text-red-500">{addContactForm.errors.title}</p>
+                            )}
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label htmlFor="email">Email</Label>
+                            <Input
+                                id="email"
+                                type="email"
+                                value={addContactForm.data.email}
+                                onChange={(e) => addContactForm.setData('email', e.target.value)}
+                                placeholder="contact@example.com"
+                            />
+                            {addContactForm.errors.email && (
+                                <p className="text-sm text-red-500">{addContactForm.errors.email}</p>
+                            )}
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label htmlFor="phone1">Phone 1</Label>
+                            <Input
+                                id="phone1"
+                                value={addContactForm.data.phone1}
+                                onChange={(e) => addContactForm.setData('phone1', e.target.value)}
+                                placeholder="+971 XX XXX XXXX"
+                            />
+                            {addContactForm.errors.phone1 && (
+                                <p className="text-sm text-red-500">{addContactForm.errors.phone1}</p>
+                            )}
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label htmlFor="phone2">Phone 2</Label>
+                            <Input
+                                id="phone2"
+                                value={addContactForm.data.phone2}
+                                onChange={(e) => addContactForm.setData('phone2', e.target.value)}
+                                placeholder="+971 XX XXX XXXX"
+                            />
+                            {addContactForm.errors.phone2 && (
+                                <p className="text-sm text-red-500">{addContactForm.errors.phone2}</p>
+                            )}
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label htmlFor="linkedin_url">LinkedIn URL</Label>
+                            <Input
+                                id="linkedin_url"
+                                value={addContactForm.data.linkedin_url}
+                                onChange={(e) => addContactForm.setData('linkedin_url', e.target.value)}
+                                placeholder="https://linkedin.com/in/username"
+                            />
+                            {addContactForm.errors.linkedin_url && (
+                                <p className="text-sm text-red-500">{addContactForm.errors.linkedin_url}</p>
+                            )}
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label htmlFor="interest_level">Interest Level *</Label>
+                            <Select
+                                value={addContactForm.data.interest_level}
+                                onValueChange={(value) => addContactForm.setData('interest_level', value)}
+                            >
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Select interest level" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="Cold">Cold</SelectItem>
+                                    <SelectItem value="Warm">Warm</SelectItem>
+                                    <SelectItem value="Hot">Hot</SelectItem>
+                                </SelectContent>
+                            </Select>
+                            {addContactForm.errors.interest_level && (
+                                <p className="text-sm text-red-500">{addContactForm.errors.interest_level}</p>
+                            )}
+                        </div>
+
+                        <div className="flex items-center space-x-2">
+                            <Checkbox
+                                id="is_pic"
+                                checked={addContactForm.data.is_pic}
+                                onCheckedChange={(checked) => addContactForm.setData('is_pic', !!checked)}
+                            />
+                            <Label htmlFor="is_pic" className="font-normal cursor-pointer">
+                                This is a Person In Charge (PIC)
+                            </Label>
+                        </div>
+
+                        <div className="flex justify-end gap-2 pt-4">
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => {
+                                    setIsAddContactDialogOpen(false);
+                                    addContactForm.reset();
+                                    addContactForm.setData('company_id', company.id.toString());
+                                }}
+                            >
+                                Cancel
+                            </Button>
+                            <Button type="submit" disabled={addContactForm.processing}>
+                                {addContactForm.processing ? 'Creating...' : 'Create Contact'}
+                            </Button>
+                        </div>
+                    </form>
+                </DialogContent>
+            </Dialog>
         </AppLayout>
     );
 }

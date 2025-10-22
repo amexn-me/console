@@ -85,6 +85,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         // Contacts - Sales segment and admins
         Route::middleware(['segment:sales'])->group(function () {
             Route::get('contacts', [ContactsController::class, 'index'])->name('contacts.index');
+            Route::post('contacts', [ContactsController::class, 'store'])->name('contacts.store');
         });
 
         // Partners - Admin only
