@@ -66,7 +66,7 @@ class LeadsController extends Controller
         }
 
         // Handle sorting
-        $sortBy = $request->input('sort_by', 'updated_at');
+        $sortBy = $request->input('sort_by', 'id');
         $sortDirection = $request->input('sort_direction', 'desc');
         
         // Map frontend sort column names to database columns/relationships
@@ -92,6 +92,7 @@ class LeadsController extends Controller
                     ->select('leads.*');
                 break;
             case 'stage':
+            case 'id':
                 $query->orderBy($sortBy, $sortDirection);
                 break;
             case 'next_followup_date':
@@ -129,7 +130,7 @@ class LeadsController extends Controller
                     ->select('leads.*');
                 break;
             default:
-                $query->orderBy('updated_at', 'desc');
+                $query->orderBy('id', 'desc');
         }
 
         $leads = $query->paginate(50);
