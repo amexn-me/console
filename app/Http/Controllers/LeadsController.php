@@ -301,6 +301,32 @@ class LeadsController extends Controller
             'Not interested at this time'
         ];
 
+        // Find next and previous leads
+        $query = Lead::query();
+        
+        // Filter by user's accessible leads
+        if (!$user->isAdmin()) {
+            $campaignIds = $user->campaigns()->pluck('campaigns.id');
+            $query->whereIn('campaign_id', $campaignIds);
+            $query->where('agent_id', $user->id);
+        }
+        
+        // Get all lead IDs in order (by id descending)
+        $leadIds = $query->orderBy('id', 'desc')->pluck('id')->toArray();
+        $currentIndex = array_search($lead->id, $leadIds);
+        
+        $nextLeadId = null;
+        $previousLeadId = null;
+        
+        if ($currentIndex !== false) {
+            if ($currentIndex > 0) {
+                $previousLeadId = $leadIds[$currentIndex - 1];
+            }
+            if ($currentIndex < count($leadIds) - 1) {
+                $nextLeadId = $leadIds[$currentIndex + 1];
+            }
+        }
+
         return Inertia::render('Leads/Show', [
             'lead' => $lead,
             'agents' => $agents,
@@ -309,6 +335,8 @@ class LeadsController extends Controller
             'conversationMethods' => $conversationMethods,
             'interestLevels' => $interestLevels,
             'remarkOptions' => $remarkOptions,
+            'nextLeadId' => $nextLeadId,
+            'previousLeadId' => $previousLeadId,
         ]);
     }
 

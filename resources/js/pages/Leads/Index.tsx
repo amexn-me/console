@@ -5,7 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
-import { Head, router, usePage } from '@inertiajs/react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { Search, Loader2, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 
@@ -315,10 +315,6 @@ export default function LeadsIndex() {
         }, 0);
     };
 
-    const handleLeadClick = (leadId: number) => {
-        router.visit(`/sales/leads/${leadId}`);
-    };
-
     const handleSort = (column: string) => {
         let newDirection: 'asc' | 'desc' = 'asc';
         
@@ -570,44 +566,59 @@ export default function LeadsIndex() {
                                         {leads.map(lead => (
                                             <TableRow
                                                 key={lead.id}
-                                                onClick={() => handleLeadClick(lead.id)}
                                                 className="cursor-pointer hover:bg-gray-50"
                                             >
-                                                <TableCell className="font-medium max-w-[250px] whitespace-normal break-words">
-                                                    {lead.company.name}
+                                                <TableCell className="font-medium max-w-[250px] whitespace-normal break-words p-0">
+                                                    <Link href={`/sales/leads/${lead.id}`} className="block px-4 py-4">
+                                                        {lead.company.name}
+                                                    </Link>
                                                 </TableCell>
-                                                <TableCell className="text-sm">
-                                                    {lead.campaign.name}
+                                                <TableCell className="text-sm p-0">
+                                                    <Link href={`/sales/leads/${lead.id}`} className="block px-4 py-4">
+                                                        {lead.campaign.name}
+                                                    </Link>
                                                 </TableCell>
-                                                <TableCell>
-                                                    <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${getStageBadgeColor(lead.stage)}`}>
-                                                        {lead.stage}
-                                                    </span>
+                                                <TableCell className="p-0">
+                                                    <Link href={`/sales/leads/${lead.id}`} className="block px-4 py-4">
+                                                        <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${getStageBadgeColor(lead.stage)}`}>
+                                                            {lead.stage}
+                                                        </span>
+                                                    </Link>
                                                 </TableCell>
-                                                <TableCell>
-                                                    {lead.agent ? lead.agent.name : '-'}
+                                                <TableCell className="p-0">
+                                                    <Link href={`/sales/leads/${lead.id}`} className="block px-4 py-4">
+                                                        {lead.agent ? lead.agent.name : '-'}
+                                                    </Link>
                                                 </TableCell>
-                                                <TableCell className="text-center">
-                                                    <span className="inline-flex items-center justify-center px-2 py-1 rounded-full bg-blue-100 text-blue-800 text-xs font-medium">
-                                                        {lead.contacts_count}
-                                                    </span>
+                                                <TableCell className="text-center p-0">
+                                                    <Link href={`/sales/leads/${lead.id}`} className="block px-4 py-4">
+                                                        <span className="inline-flex items-center justify-center px-2 py-1 rounded-full bg-blue-100 text-blue-800 text-xs font-medium">
+                                                            {lead.contacts_count}
+                                                        </span>
+                                                    </Link>
                                                 </TableCell>
-                                                <TableCell className="text-sm text-gray-600">
-                                                    {lead.next_followup_date 
-                                                        ? new Date(lead.next_followup_date).toLocaleDateString('en-US', {
-                                                            year: 'numeric',
-                                                            month: 'short',
-                                                            day: 'numeric',
-                                                        })
-                                                        : '-'}
+                                                <TableCell className="text-sm text-gray-600 p-0">
+                                                    <Link href={`/sales/leads/${lead.id}`} className="block px-4 py-4">
+                                                        {lead.next_followup_date 
+                                                            ? new Date(lead.next_followup_date).toLocaleDateString('en-US', {
+                                                                year: 'numeric',
+                                                                month: 'short',
+                                                                day: 'numeric',
+                                                            })
+                                                            : '-'}
+                                                    </Link>
                                                 </TableCell>
-                                                <TableCell className="text-sm text-gray-600">
-                                                    {lead.last_activity_date 
-                                                        ? formatDateTime(lead.last_activity_date)
-                                                        : '-'}
+                                                <TableCell className="text-sm text-gray-600 p-0">
+                                                    <Link href={`/sales/leads/${lead.id}`} className="block px-4 py-4">
+                                                        {lead.last_activity_date 
+                                                            ? formatDateTime(lead.last_activity_date)
+                                                            : '-'}
+                                                    </Link>
                                                 </TableCell>
-                                                <TableCell>
-                                                    {lead.partner ? lead.partner.name : '-'}
+                                                <TableCell className="p-0">
+                                                    <Link href={`/sales/leads/${lead.id}`} className="block px-4 py-4">
+                                                        {lead.partner ? lead.partner.name : '-'}
+                                                    </Link>
                                                 </TableCell>
                                             </TableRow>
                                         ))}

@@ -10,7 +10,7 @@ import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import { Head, router, useForm, usePage } from '@inertiajs/react';
 import { useState, useRef, useEffect } from 'react';
-import { Plus, PlusCircle, ExternalLink, UserCheck, UserX, MessageCircle, AlertCircle, Pencil, FileUp, Loader2, Save, X, Trophy, XCircle, Linkedin } from 'lucide-react';
+import { Plus, PlusCircle, ExternalLink, UserCheck, UserX, MessageCircle, AlertCircle, Pencil, FileUp, Loader2, Save, X, Trophy, XCircle, Linkedin, ChevronLeft, ChevronRight } from 'lucide-react';
 import axios from 'axios';
 import { usePermissions } from '@/hooks/use-permissions';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
@@ -110,11 +110,13 @@ interface PageProps {
     conversationMethods: string[];
     interestLevels: string[];
     remarkOptions: string[];
+    nextLeadId: number | null;
+    previousLeadId: number | null;
     [key: string]: any;
 }
 
 export default function LeadsShow() {
-    const { lead, agents = [], partners = [], stages = [], conversationMethods = [], interestLevels = [], remarkOptions = [] } = usePage<PageProps>().props;
+    const { lead, agents = [], partners = [], stages = [], conversationMethods = [], interestLevels = [], remarkOptions = [], nextLeadId = null, previousLeadId = null } = usePage<PageProps>().props;
     const permissions = usePermissions();
     
     const [notesDialogOpen, setNotesDialogOpen] = useState(false);
@@ -898,6 +900,25 @@ export default function LeadsShow() {
                             </p>
                         </div>
                         <div className="flex gap-2">
+                            {/* Navigation Buttons */}
+                            <div className="flex gap-1">
+                                <Button
+                                    variant="outline"
+                                    onClick={() => previousLeadId && router.visit(`/sales/leads/${previousLeadId}`)}
+                                    disabled={!previousLeadId}
+                                    title="Previous Lead"
+                                >
+                                    Prev<ChevronLeft className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                    variant="outline"
+                                    onClick={() => nextLeadId && router.visit(`/sales/leads/${nextLeadId}`)}
+                                    disabled={!nextLeadId}
+                                    title="Next Lead"
+                                >
+                                    Next<ChevronRight className="h-4 w-4" />
+                                </Button>
+                            </div>
                             {lead.stage === 'Closed Won' ? (
                                 <div className="bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-500 rounded-lg px-6 py-3 flex items-center gap-3 shadow-md">
                                     <Trophy className="h-6 w-6 text-green-600" />
