@@ -390,6 +390,10 @@ export default function LeadsIndex() {
         if (selectedCampaign !== 'all') params.append('campaign_id', selectedCampaign);
         if (selectedStage !== 'all') params.append('stage', selectedStage);
         if (selectedAgent !== 'all') params.append('agent_id', selectedAgent);
+        if (sortBy) {
+            params.append('sort_by', sortBy);
+            params.append('sort_direction', sortDirection);
+        }
         
         window.location.href = `/sales/leads/export?${params.toString()}`;
     };

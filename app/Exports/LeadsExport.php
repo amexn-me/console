@@ -3,6 +3,7 @@
 namespace App\Exports;
 
 use App\Models\Lead;
+use Illuminate\Support\Facades\DB;
 use Maatwebsite\Excel\Concerns\FromQuery;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\WithMapping;
@@ -51,7 +52,72 @@ class LeadsExport implements FromQuery, WithHeadings, WithMapping
             });
         }
 
-        return $query->orderBy('created_at', 'desc');
+        // Apply sorting
+        $sortBy = $this->filters['sort_by'] ?? 'id';
+        $sortDirection = $this->filters['sort_direction'] ?? 'desc';
+
+        // Map frontend sort column names to database columns/relationships
+        switch ($sortBy) {
+            case 'company_name':
+                $query->join('company', 'leads.company_id', '=', 'company.id')
+                    ->orderBy('company.name', $sortDirection)
+                    ->select('leads.*');
+                break;
+            case 'campaign_name':
+                $query->join('campaigns', 'leads.campaign_id', '=', 'campaigns.id')
+                    ->orderBy('campaigns.name', $sortDirection)
+                    ->select('leads.*');
+                break;
+            case 'agent_name':
+                $query->join('users', 'leads.agent_id', '=', 'users.id')
+                    ->orderBy('users.name', $sortDirection)
+                    ->select('leads.*');
+                break;
+            case 'partner_name':
+                $query->leftJoin('partner', 'leads.partner_id', '=', 'partner.id')
+                    ->orderBy('partner.name', $sortDirection)
+                    ->select('leads.*');
+                break;
+            case 'stage':
+            case 'id':
+                $query->orderBy($sortBy, $sortDirection);
+                break;
+            case 'next_followup_date':
+                $query->leftJoin(
+                    DB::raw('(SELECT company_id, MIN(next_followup_datetime) as earliest_followup FROM contact WHERE next_followup_datetime IS NOT NULL AND do_not_contact = false GROUP BY company_id) as contact_followups'),
+                    'leads.company_id',
+                    '=',
+                    'contact_followups.company_id'
+                )
+                ->orderBy('contact_followups.earliest_followup', $sortDirection)
+                ->select('leads.*');
+                break;
+            case 'last_activity_date':
+                $query->leftJoin(
+                    DB::raw('(SELECT lead_id, MAX(created_at) as last_activity_at FROM activity WHERE lead_id IS NOT NULL GROUP BY lead_id) as last_activities'),
+                    'leads.id',
+                    '=',
+                    'last_activities.lead_id'
+                )
+                ->orderBy('last_activities.last_activity_at', $sortDirection)
+                ->select('leads.*');
+                break;
+            case 'contacts_count':
+                $query->leftJoin('company as c', 'leads.company_id', '=', 'c.id')
+                    ->leftJoin(
+                        DB::raw('(SELECT company_id, COUNT(*) as contacts_count FROM contact GROUP BY company_id) as contact_counts'),
+                        'leads.company_id',
+                        '=',
+                        'contact_counts.company_id'
+                    )
+                    ->orderBy('contact_counts.contacts_count', $sortDirection)
+                    ->select('leads.*');
+                break;
+            default:
+                $query->orderBy('created_at', 'desc');
+        }
+
+        return $query;
     }
 
     public function headings(): array

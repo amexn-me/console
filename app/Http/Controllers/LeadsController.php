@@ -250,6 +250,8 @@ class LeadsController extends Controller
             'stage' => $request->stage,
             'agent_id' => $request->agent_id,
             'search' => $request->search,
+            'sort_by' => $request->sort_by,
+            'sort_direction' => $request->sort_direction,
         ];
 
         return Excel::download(
