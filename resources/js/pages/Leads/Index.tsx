@@ -7,7 +7,7 @@ import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { Search, Loader2, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { Search, Loader2, ArrowUpDown, ArrowUp, ArrowDown, Download } from 'lucide-react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -384,6 +384,16 @@ export default function LeadsIndex() {
 
     const hasActiveFilters = searchQuery || selectedCampaign !== 'all' || selectedStage !== 'all' || selectedAgent !== 'all';
 
+    const handleExport = () => {
+        const params = new URLSearchParams();
+        if (searchQuery) params.append('search', searchQuery);
+        if (selectedCampaign !== 'all') params.append('campaign_id', selectedCampaign);
+        if (selectedStage !== 'all') params.append('stage', selectedStage);
+        if (selectedAgent !== 'all') params.append('agent_id', selectedAgent);
+        
+        window.location.href = `/sales/leads/export?${params.toString()}`;
+    };
+
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Leads" />
@@ -397,6 +407,13 @@ export default function LeadsIndex() {
                             {initialLeads?.total || 0} total leads
                         </p>
                     </div>
+                    <Button 
+                        onClick={handleExport}
+                        className="flex items-center gap-2"
+                    >
+                        <Download className="h-4 w-4" />
+                        Export to Excel
+                    </Button>
                 </div>
 
                 {/* Search and Filters */}

@@ -14,6 +14,7 @@ use App\Models\CompanyProposal;
 use App\Models\Project;
 use App\Models\Contract;
 use App\Exports\ActivityLogsExport;
+use App\Exports\LeadsExport;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\DB;
@@ -240,6 +241,21 @@ class LeadsController extends Controller
                 'sort_direction' => $request->sort_direction,
             ],
         ]);
+    }
+
+    public function export(Request $request)
+    {
+        $filters = [
+            'campaign_id' => $request->campaign_id,
+            'stage' => $request->stage,
+            'agent_id' => $request->agent_id,
+            'search' => $request->search,
+        ];
+
+        return Excel::download(
+            new LeadsExport($filters), 
+            'leads-' . now()->format('Y-m-d-H-i-s') . '.xlsx'
+        );
     }
 
     public function show(Lead $lead)

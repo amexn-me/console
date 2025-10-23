@@ -52,6 +52,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         // Leads - Sales segment and admins
         Route::middleware(['segment:sales'])->group(function () {
             Route::get('leads', [LeadsController::class, 'index'])->name('leads.index');
+            Route::get('leads/export', [LeadsController::class, 'export'])->name('leads.export');
             Route::get('leads/{lead}', [LeadsController::class, 'show'])->name('leads.show');
             Route::get('leads/{lead}/activities', [LeadsController::class, 'getLeadActivities'])->name('leads.activities');
             Route::get('leads/{lead}/activities/export', [LeadsController::class, 'exportLeadActivities'])->name('leads.activities.export');
