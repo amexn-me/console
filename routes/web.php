@@ -54,6 +54,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('leads', [LeadsController::class, 'index'])->name('leads.index');
             Route::get('leads/{lead}', [LeadsController::class, 'show'])->name('leads.show');
             Route::get('leads/{lead}/activities', [LeadsController::class, 'getLeadActivities'])->name('leads.activities');
+            Route::get('leads/{lead}/activities/export', [LeadsController::class, 'exportLeadActivities'])->name('leads.activities.export');
             Route::get('leads/{lead}/proposals', [LeadsController::class, 'getLeadProposals'])->name('leads.proposals');
             Route::post('leads/{lead}/update', [LeadsController::class, 'update'])->name('leads.update');
             Route::post('leads/{lead}/change-stage', [LeadsController::class, 'changeStage'])->name('leads.change-stage');
@@ -97,8 +98,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('partners/companies/export', [PartnersController::class, 'exportCompanies'])->name('partners.companies.export');
         });
 
-        // Activity logs - Admin only
-        Route::middleware(['admin'])->group(function () {
+        // Activity logs - Admin and sales_user
+        Route::middleware(['can:view-activity-logs'])->group(function () {
             Route::get('activity-logs', [ActivityLogsController::class, 'index'])->name('activity-logs.index');
             Route::get('activity-logs/export', [ActivityLogsController::class, 'export'])->name('activity-logs.export');
         });

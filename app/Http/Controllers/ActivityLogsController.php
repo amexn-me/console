@@ -15,8 +15,14 @@ class ActivityLogsController extends Controller
 {
     public function index(Request $request)
     {
+        $user = $request->user();
         $query = Activity::query()
             ->with(['company', 'agent', 'contact']);
+
+        // If user is sales_user (not admin), restrict to their own activities
+        if ($user->hasRole(User::ROLE_SALES_USER)) {
+            $query->where('agent_id', $user->id);
+        }
 
         // Set default dates to today if not provided
         $fromDate = $request->filled('from_date') ? $request->from_date : Carbon::today()->format('Y-m-d');
@@ -36,8 +42,8 @@ class ActivityLogsController extends Controller
             $query->where('activity_type', $request->activity_type);
         }
 
-        // Agent/User filter
-        if ($request->filled('agent_id')) {
+        // Agent/User filter - only apply for admins
+        if ($request->filled('agent_id') && $user->isAdmin()) {
             $query->where('agent_id', $request->agent_id);
         }
 
@@ -58,7 +64,10 @@ class ActivityLogsController extends Controller
 
         // Get data for filters
         $companies = Company::select('id', 'name')->orderBy('name')->get();
-        $agents = User::select('id', 'name')->orderBy('name')->get();
+        // For sales_user, only show themselves in agents filter
+        $agents = $user->isAdmin() 
+            ? User::select('id', 'name')->orderBy('name')->get()
+            : collect([$user->only(['id', 'name'])]);
 
         return Inertia::render('ActivityLogs/Index', [
             'activities' => $activities,
@@ -78,8 +87,14 @@ class ActivityLogsController extends Controller
 
     public function export(Request $request)
     {
+        $user = $request->user();
         $query = Activity::query()
             ->with(['company', 'agent', 'contact']);
+
+        // If user is sales_user (not admin), restrict to their own activities
+        if ($user->hasRole(User::ROLE_SALES_USER)) {
+            $query->where('agent_id', $user->id);
+        }
 
         // Apply same filters as index
         $fromDate = $request->filled('from_date') ? $request->from_date : Carbon::today()->format('Y-m-d');
@@ -96,7 +111,8 @@ class ActivityLogsController extends Controller
             $query->where('activity_type', $request->activity_type);
         }
 
-        if ($request->filled('agent_id')) {
+        // Agent/User filter - only apply for admins
+        if ($request->filled('agent_id') && $user->isAdmin()) {
             $query->where('agent_id', $request->agent_id);
         }
 

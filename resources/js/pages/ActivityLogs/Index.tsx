@@ -48,7 +48,7 @@ interface Activity {
     notes: string | null;
 }
 
-interface PageProps {
+interface PageProps extends Record<string, unknown> {
     activities: {
         data: Activity[];
         current_page: number;
@@ -401,7 +401,7 @@ export default function ActivityLogsIndex() {
                                         <TableCell className="whitespace-nowrap">
                                             {new Date(activity.created_at).toLocaleString()}
                                         </TableCell>
-                                        <TableCell className="font-medium">
+                                        <TableCell className="font-medium max-w-[200px] break-words whitespace-normal">
                                             {activity.company?.name || 'N/A'}
                                         </TableCell>
                                         <TableCell>{activity.agent?.name || 'N/A'}</TableCell>
@@ -425,10 +425,10 @@ export default function ActivityLogsIndex() {
                                                 'N/A'
                                             )}
                                         </TableCell>
-                                        <TableCell className="max-w-xs truncate">
+                                        <TableCell className="max-w-[300px] break-words whitespace-normal">
                                             {activity.remarks || '—'}
                                         </TableCell>
-                                        <TableCell className="max-w-xs truncate">
+                                        <TableCell className="max-w-[300px] break-words whitespace-normal">
                                             {activity.notes || '—'}
                                         </TableCell>
                                     </TableRow>

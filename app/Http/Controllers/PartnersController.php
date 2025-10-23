@@ -19,9 +19,10 @@ class PartnersController extends Controller
 
         // Apply partner filters (for All Partners tab)
         if ($request->filled('search')) {
-            $partnersQuery->where(function ($query) use ($request) {
-                $query->where('name', 'like', '%' . $request->search . '%')
-                    ->orWhere('email', 'like', '%' . $request->search . '%');
+            $search = strtolower($request->search);
+            $partnersQuery->where(function ($query) use ($search) {
+                $query->whereRaw('LOWER(name) LIKE ?', ['%' . $search . '%'])
+                    ->orWhereRaw('LOWER(email) LIKE ?', ['%' . $search . '%']);
             });
         }
 

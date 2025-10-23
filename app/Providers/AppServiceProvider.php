@@ -53,7 +53,7 @@ class AppServiceProvider extends ServiceProvider
         Gate::define('manage-companies', fn (User $user) => $user->isAdmin() || $user->isSalesSegment());
         Gate::define('manage-contacts', fn (User $user) => $user->isAdmin() || $user->isSalesSegment());
         Gate::define('manage-leads', fn (User $user) => $user->isAdmin() || $user->isSalesSegment());
-        Gate::define('view-activity-logs', fn (User $user) => $user->isAdmin());
+        Gate::define('view-activity-logs', fn (User $user) => $user->isAdmin() || $user->hasRole(User::ROLE_SALES_USER));
         Gate::define('export-data', fn (User $user) => $user->isAdmin());
 
         // Project management gates

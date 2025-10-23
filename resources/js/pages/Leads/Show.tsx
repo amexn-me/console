@@ -10,7 +10,7 @@ import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import { Head, router, useForm, usePage } from '@inertiajs/react';
 import { useState, useRef, useEffect } from 'react';
-import { Plus, PlusCircle, ExternalLink, UserCheck, UserX, MessageCircle, AlertCircle, Pencil, FileUp, Loader2, Save, X, Trophy, XCircle, Linkedin, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, PlusCircle, ExternalLink, UserCheck, UserX, MessageCircle, AlertCircle, Pencil, FileUp, Loader2, Save, X, Trophy, XCircle, Linkedin, ChevronLeft, ChevronRight, Download, Copy, Check, Mail, Phone } from 'lucide-react';
 import axios from 'axios';
 import { usePermissions } from '@/hooks/use-permissions';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
@@ -165,6 +165,9 @@ export default function LeadsShow() {
     
     // Local state for contacts to enable immediate UI updates during drag and drop
     const [localContacts, setLocalContacts] = useState<Contact[]>(lead.company.contacts);
+    
+    // State for tracking copied items
+    const [copiedItems, setCopiedItems] = useState<{ [key: string]: boolean }>({});
 
     // Sync local contacts with server data when lead changes
     useEffect(() => {
@@ -674,6 +677,20 @@ export default function LeadsShow() {
             case 'Warm': return 'bg-orange-50 border-orange-200';
             case 'Cold': return 'bg-blue-50 border-blue-200';
             default: return 'bg-gray-50 border-gray-200';
+        }
+    };
+
+    const copyToClipboard = async (text: string, key: string) => {
+        try {
+            await navigator.clipboard.writeText(text);
+            setCopiedItems({ ...copiedItems, [key]: true });
+            
+            // Reset copied state after 2 seconds
+            setTimeout(() => {
+                setCopiedItems(prev => ({ ...prev, [key]: false }));
+            }, 2000);
+        } catch (err) {
+            console.error('Failed to copy:', err);
         }
     };
 
@@ -1272,25 +1289,61 @@ export default function LeadsShow() {
                                                                                             {/* Contact details */}
                                                                                             <div className="space-y-1 text-xs">
                                                                                                 {contact.email && (
-                                                                                                    <div className="flex items-center gap-1">
-                                                                                                        <span className="font-medium">Email:</span>
-                                                                                                        <a
-                                                                                                            href={`mailto:${contact.email}`}
-                                                                                                            className="text-blue-600 hover:underline truncate"
+                                                                                                    <div className="flex items-center gap-2">
+                                                                                                        <Mail className="h-3.5 w-3.5 text-gray-500 flex-shrink-0" />
+                                                                                                        <span 
+                                                                                                            className="text-gray-700 truncate flex-1 cursor-pointer hover:text-blue-600 transition-colors"
+                                                                                                            onClick={(e) => {
+                                                                                                                e.stopPropagation();
+                                                                                                                copyToClipboard(contact.email!, `email-${contact.id}`);
+                                                                                                            }}
+                                                                                                            title="Click to copy"
                                                                                                         >
                                                                                                             {contact.email}
-                                                                                                        </a>
+                                                                                                        </span>
+                                                                                                        <button
+                                                                                                            onClick={(e) => {
+                                                                                                                e.stopPropagation();
+                                                                                                                copyToClipboard(contact.email!, `email-${contact.id}`);
+                                                                                                            }}
+                                                                                                            className="p-1 hover:bg-gray-100 rounded transition-colors flex-shrink-0"
+                                                                                                            title="Copy email"
+                                                                                                        >
+                                                                                                            {copiedItems[`email-${contact.id}`] ? (
+                                                                                                                <Check className="h-3 w-3 text-green-600" />
+                                                                                                            ) : (
+                                                                                                                <Copy className="h-3 w-3 text-gray-500" />
+                                                                                                            )}
+                                                                                                        </button>
                                                                                                     </div>
                                                                                                 )}
                                                                                                 {contact.phone1 && (
-                                                                                                    <div className="flex items-center gap-1">
-                                                                                                        <span className="font-medium">Phone:</span>
-                                                                                                        <a
-                                                                                                            href={`tel:${contact.phone1}`}
-                                                                                                            className="text-blue-600 hover:underline"
+                                                                                                    <div className="flex items-center gap-2">
+                                                                                                        <Phone className="h-3.5 w-3.5 text-gray-500 flex-shrink-0" />
+                                                                                                        <span 
+                                                                                                            className="text-gray-700 flex-1 cursor-pointer hover:text-blue-600 transition-colors"
+                                                                                                            onClick={(e) => {
+                                                                                                                e.stopPropagation();
+                                                                                                                copyToClipboard(contact.phone1!, `phone-${contact.id}`);
+                                                                                                            }}
+                                                                                                            title="Click to copy"
                                                                                                         >
                                                                                                             {contact.phone1}
-                                                                                                        </a>
+                                                                                                        </span>
+                                                                                                        <button
+                                                                                                            onClick={(e) => {
+                                                                                                                e.stopPropagation();
+                                                                                                                copyToClipboard(contact.phone1!, `phone-${contact.id}`);
+                                                                                                            }}
+                                                                                                            className="p-1 hover:bg-gray-100 rounded transition-colors flex-shrink-0"
+                                                                                                            title="Copy phone"
+                                                                                                        >
+                                                                                                            {copiedItems[`phone-${contact.id}`] ? (
+                                                                                                                <Check className="h-3 w-3 text-green-600" />
+                                                                                                            ) : (
+                                                                                                                <Copy className="h-3 w-3 text-gray-500" />
+                                                                                                            )}
+                                                                                                        </button>
                                                                                                     </div>
                                                                                                 )}
                                                                                             </div>
@@ -1330,7 +1383,7 @@ export default function LeadsShow() {
                                                                                         </div>
 
                                                                                         {/* Vertical divider */}
-                                                                                        <div className="border-l border-gray-200"></div>
+                                                                                        <div className="border-l border-gray-400"></div>
 
                                                                                         {/* Right side - Action buttons stacked */}
                                                                                         <div className="flex flex-col gap-1.5">
@@ -1503,7 +1556,18 @@ export default function LeadsShow() {
 
                             {/* Activity Logs Tab */}
                             <TabsContent value="activity-logs" className="p-6">
-                                <h2 className="text-xl font-semibold mb-4">Activity Logs</h2>
+                                <div className="flex justify-between items-center mb-4">
+                                    <h2 className="text-xl font-semibold">Activity Logs</h2>
+                                    {leadActivities.length > 0 && (
+                                        <Button 
+                                            variant="outline"
+                                            onClick={() => window.location.href = route('leads.activities.export', lead.id)}
+                                        >
+                                            <Download className="h-4 w-4 mr-2" />
+                                            Export to Excel
+                                        </Button>
+                                    )}
+                                </div>
                                 
                                 {!activitiesLoaded && isLoadingMoreActivities ? (
                                     <div className="flex items-center justify-center py-12">
@@ -1530,18 +1594,18 @@ export default function LeadsShow() {
                                                 <TableBody>
                                                     {leadActivities.map((activity) => (
                                                         <TableRow key={activity.id}>
-                                                            <TableCell className="text-sm">
+                                                            <TableCell className="text-sm whitespace-nowrap">
                                                                 {formatDate(activity.created_at)}
                                                             </TableCell>
-                                                            <TableCell>{activity.agent?.name || 'N/A'}</TableCell>
-                                                            <TableCell>{activity.contact?.name || 'N/A'}</TableCell>
-                                                            <TableCell>
+                                                            <TableCell className="whitespace-nowrap">{activity.agent?.name || 'N/A'}</TableCell>
+                                                            <TableCell className="whitespace-nowrap">{activity.contact?.name || 'N/A'}</TableCell>
+                                                            <TableCell className="whitespace-nowrap">
                                                                 <span className="inline-flex items-center rounded-full px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800">
                                                                     {activity.activity_type || 'N/A'}
                                                                 </span>
                                                             </TableCell>
-                                                            <TableCell>{activity.conversation_method || 'N/A'}</TableCell>
-                                                            <TableCell>
+                                                            <TableCell className="whitespace-nowrap">{activity.conversation_method || 'N/A'}</TableCell>
+                                                            <TableCell className="whitespace-nowrap">
                                                                 {activity.conversation_connected !== null ? (
                                                                     <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${
                                                                         activity.conversation_connected === 'Yes' 
@@ -1552,10 +1616,10 @@ export default function LeadsShow() {
                                                                     </span>
                                                                 ) : 'N/A'}
                                                             </TableCell>
-                                                            <TableCell className="max-w-xs truncate">
+                                                            <TableCell className="max-w-xs break-words whitespace-normal">
                                                                 {activity.remarks || '-'}
                                                             </TableCell>
-                                                            <TableCell className="max-w-xs truncate">
+                                                            <TableCell className="max-w-xs break-words whitespace-normal">
                                                                 {activity.notes || '-'}
                                                             </TableCell>
                                                         </TableRow>

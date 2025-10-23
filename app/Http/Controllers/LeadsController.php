@@ -13,10 +13,12 @@ use App\Models\Lead;
 use App\Models\CompanyProposal;
 use App\Models\Project;
 use App\Models\Contract;
+use App\Exports\ActivityLogsExport;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
+use Maatwebsite\Excel\Facades\Excel;
 use Carbon\Carbon;
 
 class LeadsController extends Controller
@@ -947,5 +949,30 @@ class LeadsController extends Controller
         ]);
 
         return redirect()->back()->with('success', 'Lead stage updated successfully');
+    }
+
+    public function exportLeadActivities(Lead $lead)
+    {
+        $user = auth()->user();
+        
+        // Check access
+        if (!$user->isAdmin() && $lead->agent_id !== $user->id) {
+            abort(403, 'Unauthorized action. You can only export activities from leads where you are the agent.');
+        }
+
+        // Build the query for activities of this specific lead
+        $query = Activity::where('lead_id', $lead->id)
+            ->with(['agent', 'contact', 'company'])
+            ->orderBy('created_at', 'desc');
+
+        // Get lead company name for filename
+        $companyName = $lead->company->name;
+        $sanitizedCompanyName = preg_replace('/[^A-Za-z0-9\-]/', '_', $companyName);
+        $filename = 'activity-logs-' . $sanitizedCompanyName . '-' . now()->format('Y-m-d-His') . '.xlsx';
+
+        return Excel::download(
+            new ActivityLogsExport($query),
+            $filename
+        );
     }
 }

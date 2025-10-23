@@ -76,7 +76,7 @@ const allNavGroups: (NavGroup & { requiredPermission?: string })[] = [
                 title: 'Activity Logs',
                 href: '/sales/activity-logs',
                 icon: FileText,
-                requiredPermission: 'isAdmin',
+                requiredPermission: 'viewActivityLogs',
             },
         ],
     },

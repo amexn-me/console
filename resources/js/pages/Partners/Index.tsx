@@ -105,6 +105,18 @@ export default function PartnersIndex() {
         contract_status: filters.contract_status || 'all',
     });
 
+    // Debounce timer ref for search
+    const searchDebounceTimer = useRef<NodeJS.Timeout | null>(null);
+
+    // Cleanup debounce timer on unmount
+    useEffect(() => {
+        return () => {
+            if (searchDebounceTimer.current) {
+                clearTimeout(searchDebounceTimer.current);
+            }
+        };
+    }, []);
+
     // Reset partners on initial load or when page 1 is loaded
     useEffect(() => {
         if (partnersIsInitialLoad.current || initialPartners.current_page === 1) {
@@ -315,14 +327,36 @@ export default function PartnersIndex() {
         const newFilters = { ...partnerFilters, [key]: value };
         setPartnerFilters(newFilters);
 
-        const params: Record<string, string> = {};
-        if (newFilters.search) params.search = newFilters.search;
-        if (newFilters.contract_status && newFilters.contract_status !== 'all') params.contract_status = newFilters.contract_status;
+        // Clear existing debounce timer
+        if (searchDebounceTimer.current) {
+            clearTimeout(searchDebounceTimer.current);
+        }
 
-        router.get('/sales/partners', params, {
-            preserveState: false,
-            preserveScroll: false,
-        });
+        // For search, apply debouncing
+        if (key === 'search') {
+            searchDebounceTimer.current = setTimeout(() => {
+                const params: Record<string, string> = {};
+                if (newFilters.search) params.search = newFilters.search;
+                if (newFilters.contract_status && newFilters.contract_status !== 'all') params.contract_status = newFilters.contract_status;
+
+                router.get('/sales/partners', params, {
+                    preserveState: true,
+                    preserveScroll: true,
+                    only: ['partners'],
+                });
+            }, 500); // 500ms debounce
+        } else {
+            // For other filters (like contract_status), apply immediately
+            const params: Record<string, string> = {};
+            if (newFilters.search) params.search = newFilters.search;
+            if (newFilters.contract_status && newFilters.contract_status !== 'all') params.contract_status = newFilters.contract_status;
+
+            router.get('/sales/partners', params, {
+                preserveState: true,
+                preserveScroll: true,
+                only: ['partners'],
+            });
+        }
     };
 
     const handleCompanyFilterChange = (key: string, value: string) => {
@@ -420,7 +454,7 @@ export default function PartnersIndex() {
                                     variant="outline"
                                     onClick={() => {
                                         setPartnerFilters({ search: '', contract_status: 'all' });
-                                        router.get('/partners', {}, { preserveState: false, preserveScroll: false });
+                                        router.get('/sales/partners', {}, { preserveState: false, preserveScroll: false });
                                     }}
                                 >
                                     Clear Filters
@@ -560,7 +594,7 @@ export default function PartnersIndex() {
                                     size="sm" 
                                     onClick={() => {
                                         setLocalFilters({ partner_id: 'all', stage: 'all' });
-                                        router.get('/partners', {}, { preserveState: false, preserveScroll: false });
+                                        router.get('/sales/partners', {}, { preserveState: false, preserveScroll: false });
                                     }}
                                 >
                                     Clear Filters
