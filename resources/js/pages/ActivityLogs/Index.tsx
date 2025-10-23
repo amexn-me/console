@@ -305,12 +305,11 @@ export default function ActivityLogsIndex() {
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="all">All Methods</SelectItem>
-                                <SelectItem value="Phone">Phone</SelectItem>
-                                <SelectItem value="Email">Email</SelectItem>
-                                <SelectItem value="Video Call">Video Call</SelectItem>
-                                <SelectItem value="In-Person">In-Person</SelectItem>
+                                <SelectItem value="Call">Call</SelectItem>
                                 <SelectItem value="WhatsApp">WhatsApp</SelectItem>
                                 <SelectItem value="LinkedIn">LinkedIn</SelectItem>
+                                <SelectItem value="Email">Email</SelectItem>
+                                <SelectItem value="Teams Chat">Teams Chat</SelectItem>
                             </SelectContent>
                         </Select>
                     </div>
