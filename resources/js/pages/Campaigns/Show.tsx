@@ -12,7 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import { Head, router, useForm, usePage } from '@inertiajs/react';
-import { ArrowLeft, Plus, Trash2, Pencil, TrendingUp, Users as UsersIcon, Target, Search, X, Download, BarChart3, List, ChevronLeft, ChevronRight, Award, Activity as ActivityIcon, AlertTriangle, Clock, FileSpreadsheet, Loader2 } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Pencil, TrendingUp, Users as UsersIcon, Target, Search, X, Download, BarChart3, List, ChevronLeft, ChevronRight, Award, Activity as ActivityIcon, AlertTriangle, Clock, FileSpreadsheet, Loader2, FileText } from 'lucide-react';
 import { useState } from 'react';
 import { usePermissions } from '@/hooks/use-permissions';
 import { SalesFunnelChart } from '@/components/SalesFunnelChart';
@@ -113,6 +113,22 @@ interface StaleLeadsData {
     all_stale: StaleLead[];
 }
 
+interface AgentActivityAnalytics {
+    agent_id: number;
+    agent_name: string;
+    total_contacts: number;
+    contacts_attempted: number;
+    contacts_connected: number;
+    connection_rate: number;
+    total_activities: number;
+    connection_methods: Record<string, number>;
+    total_leads: number;
+    leads_with_activities: number;
+    stage_changes: number;
+    no_stage_change: number;
+    stage_change_rate: number;
+}
+
 interface Analytics {
     total_leads: number;
     by_stage?: Record<string, number>;
@@ -120,6 +136,8 @@ interface Analytics {
     stage_agent_breakdown?: Array<Record<string, any>>;
     agent_performance?: AgentPerformance[];
     stale_leads?: StaleLeadsData;
+    agent_activity_analytics?: AgentActivityAnalytics[];
+    current_period?: string;
 }
 
 type PageProps = {
@@ -155,6 +173,14 @@ export default function CampaignsShow() {
 
     // Stale leads section visibility state
     const [visibleStaleSection, setVisibleStaleSection] = useState<'oldest_10' | 'over_30_days' | 'over_14_days' | 'over_7_days' | null>('oldest_10');
+
+    // Agent Activity Analytics period state
+    const [analyticsPeriod, setAnalyticsPeriod] = useState<'daily' | 'weekly' | 'monthly'>(initialAnalytics.current_period as 'daily' | 'weekly' | 'monthly' || 'daily');
+
+    // Advance Reports state
+    const [reportStartDate, setReportStartDate] = useState<string>(new Date().toISOString().split('T')[0]);
+    const [reportEndDate, setReportEndDate] = useState<string>(new Date().toISOString().split('T')[0]);
+    const [isExportingReport, setIsExportingReport] = useState(false);
 
     // Bulk add companies state
     const [searchQuery, setSearchQuery] = useState('');
@@ -429,6 +455,14 @@ export default function CampaignsShow() {
                         <TabsTrigger value="lead-analysis" className="gap-2">
                             <AlertTriangle className="h-4 w-4" />
                             Lead Analysis
+                        </TabsTrigger>
+                        <TabsTrigger value="agent-activity-analytics" className="gap-2">
+                            <ActivityIcon className="h-4 w-4" />
+                            Agent Activity Analytics
+                        </TabsTrigger>
+                        <TabsTrigger value="advance-reports" className="gap-2">
+                            <FileText className="h-4 w-4" />
+                            Advance Reports
                         </TabsTrigger>
                     </TabsList>
 
@@ -1162,6 +1196,376 @@ export default function CampaignsShow() {
                                 Switch to Performance Analysis tab to load data
                 </div>
                         )}
+                    </TabsContent>
+
+                    {/* Agent Activity Analytics Tab */}
+                    <TabsContent value="agent-activity-analytics" className="flex-1 overflow-y-auto space-y-6 mt-4">
+                        {isLoadingTab && activeTab === 'agent-activity-analytics' ? (
+                            <div className="flex items-center justify-center py-12">
+                                <TrendingUp className="h-8 w-8 animate-spin text-muted-foreground" />
+                            </div>
+                        ) : analytics.agent_activity_analytics ? (
+                            <div className="space-y-6">
+                                {/* Header with Period Selector and Export */}
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <h2 className="text-xl font-semibold">Agent Activity Analytics</h2>
+                                        <p className="text-sm text-muted-foreground">
+                                            Track agent connection attempts, methods, and stage progression
+                                        </p>
+                                    </div>
+                                    <div className="flex gap-3">
+                                        {/* Period Selector */}
+                                        <Select 
+                                            value={analyticsPeriod} 
+                                            onValueChange={(value: 'daily' | 'weekly' | 'monthly') => {
+                                                setAnalyticsPeriod(value);
+                                                setIsLoadingTab(true);
+                                                router.visit(
+                                                    route('campaigns.show', { campaign: campaign.id, tab: 'agent-activity-analytics', period: value }),
+                                                    {
+                                                        preserveScroll: true,
+                                                        preserveState: true,
+                                                        onSuccess: (page) => {
+                                                            const newAnalytics = page.props.analytics as Analytics;
+                                                            if (newAnalytics) {
+                                                                setAnalytics(newAnalytics);
+                                                            }
+                                                            setIsLoadingTab(false);
+                                                        },
+                                                    }
+                                                );
+                                            }}
+                                        >
+                                            <SelectTrigger className="w-[180px]">
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="daily">
+                                                    <div className="flex items-center gap-2">
+                                                        <Clock className="h-4 w-4" />
+                                                        Daily
+                                                    </div>
+                                                </SelectItem>
+                                                <SelectItem value="weekly">
+                                                    <div className="flex items-center gap-2">
+                                                        <Clock className="h-4 w-4" />
+                                                        Weekly
+                                                    </div>
+                                                </SelectItem>
+                                                <SelectItem value="monthly">
+                                                    <div className="flex items-center gap-2">
+                                                        <Clock className="h-4 w-4" />
+                                                        Monthly
+                                                    </div>
+                                                </SelectItem>
+                                            </SelectContent>
+                                        </Select>
+
+                                        {/* Export Button */}
+                                        <Button 
+                                            variant="outline"
+                                            onClick={() => {
+                                                window.location.href = route('campaigns.agent-activity-analytics.export', { 
+                                                    campaign: campaign.id,
+                                                    period: analyticsPeriod
+                                                });
+                                            }}
+                                        >
+                                            <Download className="mr-2 h-4 w-4" />
+                                            Export to Excel
+                                        </Button>
+                                    </div>
+                                </div>
+
+                                {/* Summary Cards */}
+                                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                                    <Card>
+                                        <CardHeader className="pb-3">
+                                            <CardTitle className="text-sm font-medium text-muted-foreground">Total Activities</CardTitle>
+                                        </CardHeader>
+                                        <CardContent>
+                                            <div className="text-2xl font-bold">
+                                                {analytics.agent_activity_analytics.reduce((sum, agent) => sum + agent.total_activities, 0)}
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+
+                                    <Card>
+                                        <CardHeader className="pb-3">
+                                            <CardTitle className="text-sm font-medium text-muted-foreground">Contacts Attempted</CardTitle>
+                                        </CardHeader>
+                                        <CardContent>
+                                            <div className="text-2xl font-bold">
+                                                {analytics.agent_activity_analytics.reduce((sum, agent) => sum + agent.contacts_attempted, 0)}
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+
+                                    <Card>
+                                        <CardHeader className="pb-3">
+                                            <CardTitle className="text-sm font-medium text-muted-foreground">Contacts Connected</CardTitle>
+                                        </CardHeader>
+                                        <CardContent>
+                                            <div className="text-2xl font-bold">
+                                                {analytics.agent_activity_analytics.reduce((sum, agent) => sum + agent.contacts_connected, 0)}
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+
+                                    <Card>
+                                        <CardHeader className="pb-3">
+                                            <CardTitle className="text-sm font-medium text-muted-foreground">Stage Changes</CardTitle>
+                                        </CardHeader>
+                                        <CardContent>
+                                            <div className="text-2xl font-bold">
+                                                {analytics.agent_activity_analytics.reduce((sum, agent) => sum + agent.stage_changes, 0)}
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+                                </div>
+
+                                {/* Agent Activity Table */}
+                                <Card>
+                                    <CardHeader>
+                                        <CardTitle>Agent Connection Attempts & Success Rate</CardTitle>
+                                        <CardDescription>Track how agents are connecting with contacts</CardDescription>
+                                    </CardHeader>
+                                    <CardContent>
+                                        <div className="rounded-lg border">
+                                            <Table>
+                                                <TableHeader>
+                                                    <TableRow>
+                                                        <TableHead>Agent</TableHead>
+                                                        <TableHead>Total Contacts</TableHead>
+                                                        <TableHead>Attempted</TableHead>
+                                                        <TableHead>Connected</TableHead>
+                                                        <TableHead>Connection Rate</TableHead>
+                                                        <TableHead>Total Activities</TableHead>
+                                                    </TableRow>
+                                                </TableHeader>
+                                                <TableBody>
+                                                    {analytics.agent_activity_analytics.map((agent) => (
+                                                        <TableRow key={agent.agent_id}>
+                                                            <TableCell className="font-medium">{agent.agent_name}</TableCell>
+                                                            <TableCell>{agent.total_contacts}</TableCell>
+                                                            <TableCell>{agent.contacts_attempted}</TableCell>
+                                                            <TableCell>{agent.contacts_connected}</TableCell>
+                                                            <TableCell>
+                                                                <div className="flex items-center gap-2">
+                                                                    <Badge variant={agent.connection_rate >= 50 ? 'default' : agent.connection_rate >= 25 ? 'secondary' : 'destructive'}>
+                                                                        {agent.connection_rate.toFixed(1)}%
+                                                                    </Badge>
+                                                                </div>
+                                                            </TableCell>
+                                                            <TableCell>{agent.total_activities}</TableCell>
+                                                        </TableRow>
+                                                    ))}
+                                                </TableBody>
+                                            </Table>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+
+                                {/* Connection Methods Table */}
+                                <Card>
+                                    <CardHeader>
+                                        <CardTitle>Connection Methods Used</CardTitle>
+                                        <CardDescription>Breakdown of connection methods by agent</CardDescription>
+                                    </CardHeader>
+                                    <CardContent>
+                                        <div className="rounded-lg border">
+                                            <Table>
+                                                <TableHeader>
+                                                    <TableRow>
+                                                        <TableHead>Agent</TableHead>
+                                                        <TableHead>Call</TableHead>
+                                                        <TableHead>WhatsApp</TableHead>
+                                                        <TableHead>LinkedIn</TableHead>
+                                                        <TableHead>Email</TableHead>
+                                                        <TableHead>Teams Chat</TableHead>
+                                                        <TableHead>Other</TableHead>
+                                                    </TableRow>
+                                                </TableHeader>
+                                                <TableBody>
+                                                    {analytics.agent_activity_analytics.map((agent) => (
+                                                        <TableRow key={agent.agent_id}>
+                                                            <TableCell className="font-medium">{agent.agent_name}</TableCell>
+                                                            <TableCell>{agent.connection_methods['Call'] || 0}</TableCell>
+                                                            <TableCell>{agent.connection_methods['WhatsApp'] || 0}</TableCell>
+                                                            <TableCell>{agent.connection_methods['LinkedIn'] || 0}</TableCell>
+                                                            <TableCell>{agent.connection_methods['Email'] || 0}</TableCell>
+                                                            <TableCell>{agent.connection_methods['Teams Chat'] || 0}</TableCell>
+                                                            <TableCell>{agent.connection_methods['Other'] || 0}</TableCell>
+                                                        </TableRow>
+                                                    ))}
+                                                </TableBody>
+                                            </Table>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+
+                                {/* Stage Changes Table */}
+                                <Card>
+                                    <CardHeader>
+                                        <CardTitle>Stage Change Analysis</CardTitle>
+                                        <CardDescription>Track leads with stage progression vs. stagnant leads</CardDescription>
+                                    </CardHeader>
+                                    <CardContent>
+                                        <div className="rounded-lg border">
+                                            <Table>
+                                                <TableHeader>
+                                                    <TableRow>
+                                                        <TableHead>Agent</TableHead>
+                                                        <TableHead>Total Leads</TableHead>
+                                                        <TableHead>Leads with Activities</TableHead>
+                                                        <TableHead>Stage Changes</TableHead>
+                                                        <TableHead>No Stage Change</TableHead>
+                                                        <TableHead>Stage Change Rate</TableHead>
+                                                    </TableRow>
+                                                </TableHeader>
+                                                <TableBody>
+                                                    {analytics.agent_activity_analytics.map((agent) => (
+                                                        <TableRow key={agent.agent_id}>
+                                                            <TableCell className="font-medium">{agent.agent_name}</TableCell>
+                                                            <TableCell>{agent.total_leads}</TableCell>
+                                                            <TableCell>{agent.leads_with_activities}</TableCell>
+                                                            <TableCell>
+                                                                <Badge variant="default">{agent.stage_changes}</Badge>
+                                                            </TableCell>
+                                                            <TableCell>
+                                                                <Badge variant="secondary">{agent.no_stage_change}</Badge>
+                                                            </TableCell>
+                                                            <TableCell>
+                                                                <Badge variant={agent.stage_change_rate >= 50 ? 'default' : agent.stage_change_rate >= 25 ? 'secondary' : 'destructive'}>
+                                                                    {agent.stage_change_rate.toFixed(1)}%
+                                                                </Badge>
+                                                            </TableCell>
+                                                        </TableRow>
+                                                    ))}
+                                                </TableBody>
+                                            </Table>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            </div>
+                        ) : (
+                            <div className="flex items-center justify-center py-12 text-muted-foreground">
+                                Switch to Agent Activity Analytics tab to load data
+                            </div>
+                        )}
+                    </TabsContent>
+
+                    {/* Advance Reports Tab */}
+                    <TabsContent value="advance-reports" className="flex-1 overflow-y-auto mt-4">
+                        <div className="space-y-6 px-6">
+                            <div>
+                                <h2 className="text-2xl font-bold">Advance Reports</h2>
+                                <p className="text-sm text-muted-foreground">
+                                    Generate detailed analytics reports for comprehensive campaign analysis
+                                </p>
+                            </div>
+
+                            {/* Reports Table */}
+                            <Card className="border-2">
+                                <CardContent className="p-0">
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow className="bg-gradient-to-r from-gray-50 to-gray-100 hover:from-gray-50 hover:to-gray-100 border-b-2">
+                                                <TableHead className="w-[60px] font-bold text-center">#</TableHead>
+                                                <TableHead className="font-bold">Report Name</TableHead>
+                                                <TableHead className="font-bold text-center">Date Range</TableHead>
+                                                <TableHead className="font-bold text-center w-[140px]">Action</TableHead>
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {/* Lead-Contact-Activity Report */}
+                                            <TableRow className="hover:bg-blue-50/50">
+                                                <TableCell className="text-center">
+                                                    <div className="flex items-center justify-center w-8 h-8 rounded-full bg-blue-600 text-white font-bold">
+                                                        1
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell>
+                                                    <div>
+                                                        <div className="font-semibold">Lead-wise Contact Activity Report</div>
+                                                        <div className="text-sm text-muted-foreground">
+                                                            Summary analytics with counts and metrics for lead follow-up performance
+                                                        </div>
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell>
+                                                    <div className="flex items-center justify-center gap-2">
+                                                        <Input
+                                                            type="date"
+                                                            value={reportStartDate}
+                                                            onChange={(e) => setReportStartDate(e.target.value)}
+                                                            max={reportEndDate}
+                                                            className="w-[150px]"
+                                                        />
+                                                        <span className="text-xs text-muted-foreground">to</span>
+                                                        <Input
+                                                            type="date"
+                                                            value={reportEndDate}
+                                                            onChange={(e) => setReportEndDate(e.target.value)}
+                                                            min={reportStartDate}
+                                                            className="w-[150px]"
+                                                        />
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell className="text-center">
+                                                    <Button
+                                                        onClick={() => {
+                                                            setIsExportingReport(true);
+                                                            
+                                                            // Trigger download
+                                                            window.location.href = route('campaigns.advance-reports.lead-contact-activity', {
+                                                                campaign: campaign.id,
+                                                                start_date: reportStartDate,
+                                                                end_date: reportEndDate,
+                                                            });
+                                                            
+                                                            // Stop loading after 5 seconds (enough time for download to start)
+                                                            setTimeout(() => {
+                                                                setIsExportingReport(false);
+                                                            }, 5000);
+                                                        }}
+                                                        disabled={isExportingReport}
+                                                        className="w-full"
+                                                    >
+                                                        {isExportingReport ? (
+                                                            <>
+                                                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                                                Exporting...
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                <Download className="mr-2 h-4 w-4" />
+                                                                Export
+                                                            </>
+                                                        )}
+                                                    </Button>
+                                                </TableCell>
+                                            </TableRow>
+                                        </TableBody>
+                                    </Table>
+                                </CardContent>
+                            </Card>
+
+                            {/* Info Banner */}
+                            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-lg p-4">
+                                <div className="flex items-start gap-3">
+                                    <AlertTriangle className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
+                                    <div className="flex-1">
+                                        <h4 className="font-semibold text-blue-900 mb-1">Report Generation</h4>
+                                        <p className="text-sm text-blue-800">
+                                            Reports are generated on-demand and may take a few moments depending on the amount of data. 
+                                            The Excel file will be downloaded automatically when ready.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </TabsContent>
                 </Tabs>
 

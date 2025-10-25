@@ -47,6 +47,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('campaigns/{campaign}/bulk-changes', [CampaignsController::class, 'bulkChanges'])->name('campaigns.bulk-changes');
             Route::post('campaigns/{campaign}/bulk-update', [CampaignsController::class, 'bulkUpdate'])->name('campaigns.bulk-update');
             Route::get('campaigns/{campaign}/leads/export', [CampaignsController::class, 'exportLeads'])->name('campaigns.leads.export');
+            Route::get('campaigns/{campaign}/agent-activity-analytics/export', [CampaignsController::class, 'exportAgentActivityAnalytics'])->name('campaigns.agent-activity-analytics.export');
+            Route::get('campaigns/{campaign}/advance-reports/lead-contact-activity', [CampaignsController::class, 'exportLeadContactActivityReport'])->name('campaigns.advance-reports.lead-contact-activity');
         });
 
         // Leads - Sales segment and admins

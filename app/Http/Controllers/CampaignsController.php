@@ -12,6 +12,8 @@ use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\CampaignLeadsExport;
+use App\Exports\AgentActivityAnalyticsExport;
+use App\Exports\LeadContactActivityReportExport;
 
 class CampaignsController extends Controller
 {
@@ -307,6 +309,117 @@ class CampaignsController extends Controller
             ->values();
 
             $analytics['agent_performance'] = $agentPerformance;
+        }
+
+        // Load agent activity analytics data for agent-activity-analytics tab
+        if ($tab === 'agent-activity-analytics') {
+            $period = $request->get('period', 'daily');
+            
+            // Determine date range based on period
+            $dateFrom = match($period) {
+                'daily' => now()->startOfDay(),
+                'weekly' => now()->startOfWeek(),
+                'monthly' => now()->startOfMonth(),
+                default => now()->startOfDay(),
+            };
+            
+            // Get all agents in this campaign
+            $agentAnalytics = User::whereIn('id', function($query) use ($campaign) {
+                $query->select('agent_id')
+                    ->from('leads')
+                    ->where('campaign_id', $campaign->id)
+                    ->whereNotNull('agent_id')
+                    ->distinct();
+            })
+            ->get()
+            ->map(function($agent) use ($campaign, $dateFrom) {
+                // Get leads for this agent in this campaign
+                $leadIds = Lead::where('campaign_id', $campaign->id)
+                    ->where('agent_id', $agent->id)
+                    ->pluck('id');
+                
+                // Count unique contacts for these leads
+                $totalContacts = Contact::whereIn('company_id', function($query) use ($leadIds) {
+                    $query->select('company_id')
+                        ->from('leads')
+                        ->whereIn('id', $leadIds);
+                })->count();
+                
+                // Get activities for this period
+                $activities = Activity::where('agent_id', $agent->id)
+                    ->whereIn('lead_id', $leadIds)
+                    ->where('created_at', '>=', $dateFrom)
+                    ->get();
+                
+                // Count contacts attempted (unique contact_ids from activities)
+                $contactsAttempted = $activities->whereNotNull('contact_id')->unique('contact_id')->count();
+                
+                // Count contacts connected (where conversation_connected = true)
+                $contactsConnected = $activities
+                    ->whereNotNull('contact_id')
+                    ->where('conversation_connected', true)
+                    ->unique('contact_id')
+                    ->count();
+                
+                // Connection rate
+                $connectionRate = $contactsAttempted > 0 
+                    ? ($contactsConnected / $contactsAttempted) * 100 
+                    : 0;
+                
+                // Group activities by conversation method
+                $connectionMethods = $activities
+                    ->whereNotNull('conversation_method')
+                    ->groupBy('conversation_method')
+                    ->map(function($group) {
+                        return $group->count();
+                    })
+                    ->toArray();
+                
+                // Ensure all methods are present
+                $allMethods = ['Call', 'WhatsApp', 'LinkedIn', 'Email', 'Teams Chat', 'Other'];
+                foreach ($allMethods as $method) {
+                    if (!isset($connectionMethods[$method])) {
+                        $connectionMethods[$method] = 0;
+                    }
+                }
+                
+                // Track stage changes during this period
+                // Get leads that had activities during this period
+                $leadsWithActivities = $activities->pluck('lead_id')->unique();
+                
+                // Count how many of these leads had stage changes
+                // We'll check if lead's updated_at is within the period and if it changed stage
+                $leadsWithStageChanges = Lead::whereIn('id', $leadsWithActivities)
+                    ->where('updated_at', '>=', $dateFrom)
+                    ->count();
+                
+                $leadsWithoutStageChanges = $leadsWithActivities->count() - $leadsWithStageChanges;
+                
+                $stageChangeRate = $leadsWithActivities->count() > 0
+                    ? ($leadsWithStageChanges / $leadsWithActivities->count()) * 100
+                    : 0;
+                
+                return [
+                    'agent_id' => $agent->id,
+                    'agent_name' => $agent->name,
+                    'total_contacts' => $totalContacts,
+                    'contacts_attempted' => $contactsAttempted,
+                    'contacts_connected' => $contactsConnected,
+                    'connection_rate' => $connectionRate,
+                    'total_activities' => $activities->count(),
+                    'connection_methods' => $connectionMethods,
+                    'total_leads' => $leadIds->count(),
+                    'leads_with_activities' => $leadsWithActivities->count(),
+                    'stage_changes' => $leadsWithStageChanges,
+                    'no_stage_change' => $leadsWithoutStageChanges,
+                    'stage_change_rate' => $stageChangeRate,
+                ];
+            })
+            ->sortByDesc('total_activities')
+            ->values();
+            
+            $analytics['agent_activity_analytics'] = $agentAnalytics;
+            $analytics['current_period'] = $period;
         }
 
         // Get all company IDs already in this campaign
@@ -713,6 +826,153 @@ class CampaignsController extends Controller
         $fileName = 'campaign_' . $campaign->id . '_leads_' . now()->format('Y-m-d_His') . '.xlsx';
         
         return Excel::download(new CampaignLeadsExport($campaign->id), $fileName);
+    }
+
+    public function exportAgentActivityAnalytics(Campaign $campaign, Request $request)
+    {
+        // Only admins can export agent activity analytics
+        if (!auth()->user()->isAdmin()) {
+            abort(403, 'Unauthorized action. Only admins can export agent activity analytics.');
+        }
+
+        $period = $request->get('period', 'daily');
+        
+        // Determine date range based on period
+        $dateFrom = match($period) {
+            'daily' => now()->startOfDay(),
+            'weekly' => now()->startOfWeek(),
+            'monthly' => now()->startOfMonth(),
+            default => now()->startOfDay(),
+        };
+        
+        // Get agent analytics data (same logic as in show method)
+        $agentAnalytics = User::whereIn('id', function($query) use ($campaign) {
+            $query->select('agent_id')
+                ->from('leads')
+                ->where('campaign_id', $campaign->id)
+                ->whereNotNull('agent_id')
+                ->distinct();
+        })
+        ->get()
+        ->map(function($agent) use ($campaign, $dateFrom) {
+            // Get leads for this agent in this campaign
+            $leadIds = Lead::where('campaign_id', $campaign->id)
+                ->where('agent_id', $agent->id)
+                ->pluck('id');
+            
+            // Count unique contacts for these leads
+            $totalContacts = Contact::whereIn('company_id', function($query) use ($leadIds) {
+                $query->select('company_id')
+                    ->from('leads')
+                    ->whereIn('id', $leadIds);
+            })->count();
+            
+            // Get activities for this period
+            $activities = Activity::where('agent_id', $agent->id)
+                ->whereIn('lead_id', $leadIds)
+                ->where('created_at', '>=', $dateFrom)
+                ->get();
+            
+            // Count contacts attempted (unique contact_ids from activities)
+            $contactsAttempted = $activities->whereNotNull('contact_id')->unique('contact_id')->count();
+            
+            // Count contacts connected (where conversation_connected = true)
+            $contactsConnected = $activities
+                ->whereNotNull('contact_id')
+                ->where('conversation_connected', true)
+                ->unique('contact_id')
+                ->count();
+            
+            // Connection rate
+            $connectionRate = $contactsAttempted > 0 
+                ? ($contactsConnected / $contactsAttempted) * 100 
+                : 0;
+            
+            // Group activities by conversation method
+            $connectionMethods = $activities
+                ->whereNotNull('conversation_method')
+                ->groupBy('conversation_method')
+                ->map(function($group) {
+                    return $group->count();
+                })
+                ->toArray();
+            
+            // Ensure all methods are present
+            $allMethods = ['Call', 'WhatsApp', 'LinkedIn', 'Email', 'Teams Chat', 'Other'];
+            foreach ($allMethods as $method) {
+                if (!isset($connectionMethods[$method])) {
+                    $connectionMethods[$method] = 0;
+                }
+            }
+            
+            // Track stage changes during this period
+            $leadsWithActivities = $activities->pluck('lead_id')->unique();
+            
+            $leadsWithStageChanges = Lead::whereIn('id', $leadsWithActivities)
+                ->where('updated_at', '>=', $dateFrom)
+                ->count();
+            
+            $leadsWithoutStageChanges = $leadsWithActivities->count() - $leadsWithStageChanges;
+            
+            $stageChangeRate = $leadsWithActivities->count() > 0
+                ? ($leadsWithStageChanges / $leadsWithActivities->count()) * 100
+                : 0;
+            
+            return [
+                'agent_id' => $agent->id,
+                'agent_name' => $agent->name,
+                'total_contacts' => $totalContacts,
+                'contacts_attempted' => $contactsAttempted,
+                'contacts_connected' => $contactsConnected,
+                'connection_rate' => $connectionRate,
+                'total_activities' => $activities->count(),
+                'connection_methods' => $connectionMethods,
+                'total_leads' => $leadIds->count(),
+                'leads_with_activities' => $leadsWithActivities->count(),
+                'stage_changes' => $leadsWithStageChanges,
+                'no_stage_change' => $leadsWithoutStageChanges,
+                'stage_change_rate' => $stageChangeRate,
+            ];
+        })
+        ->sortByDesc('total_activities')
+        ->values()
+        ->toArray();
+
+        // Prepare date range info
+        $dateRange = [
+            'from' => $dateFrom->format('Y-m-d H:i:s'),
+            'to' => now()->format('Y-m-d H:i:s'),
+        ];
+        
+        $fileName = 'campaign_' . $campaign->id . '_agent_activity_' . $period . '_' . now()->format('Y-m-d_His') . '.xlsx';
+        
+        return Excel::download(
+            new AgentActivityAnalyticsExport($agentAnalytics, $period, $campaign->name, $dateRange), 
+            $fileName
+        );
+    }
+
+    public function exportLeadContactActivityReport(Campaign $campaign, Request $request)
+    {
+        // Only admins can export advance reports
+        if (!auth()->user()->isAdmin()) {
+            abort(403, 'Unauthorized action. Only admins can export advance reports.');
+        }
+
+        $validated = $request->validate([
+            'start_date' => 'required|date',
+            'end_date' => 'required|date|after_or_equal:start_date',
+        ]);
+
+        $startDate = $validated['start_date'];
+        $endDate = $validated['end_date'];
+        
+        $fileName = 'campaign_' . $campaign->id . '_lead_contact_activity_' . $startDate . '_to_' . $endDate . '_' . now()->format('YmdHis') . '.xlsx';
+        
+        return Excel::download(
+            new LeadContactActivityReportExport($campaign->id, $startDate, $endDate, $campaign->name), 
+            $fileName
+        );
     }
 }
 
