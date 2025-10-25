@@ -196,7 +196,8 @@ class LeadsController extends Controller
             'Questionnaire Replied',
             'Proposal',
             'Closed Won',
-            'Closed Lost'
+            'Closed Lost',
+            'Disqualified'
         ];
 
         $conversationMethods = [
@@ -291,7 +292,8 @@ class LeadsController extends Controller
             'Questionnaire Replied',
             'Proposal',
             'Closed Won',
-            'Closed Lost'
+            'Closed Lost',
+            'Disqualified'
         ];
 
         $conversationMethods = [

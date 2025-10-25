@@ -16,6 +16,7 @@ const STAGE_ORDER = [
     'Proposal',
     'Closed Won',
     'Closed Lost',
+    'Disqualified',
 ];
 
 // Color palette for different agents

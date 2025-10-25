@@ -590,7 +590,8 @@ class CampaignsController extends Controller
             'Questionnaire Replied',
             'Proposal',
             'Closed Won',
-            'Closed Lost'
+            'Closed Lost',
+            'Disqualified'
         ];
 
         return Inertia::render('Campaigns/BulkChanges', [
