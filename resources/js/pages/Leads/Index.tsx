@@ -1,13 +1,13 @@
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { MultiSelect } from '@/components/ui/multi-select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { Search, Loader2, ArrowUpDown, ArrowUp, ArrowDown, Download } from 'lucide-react';
+import { Search, Loader2, ArrowUpDown, ArrowUp, ArrowDown, Download, X } from 'lucide-react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -71,9 +71,9 @@ interface PageProps {
     stages: string[];
     filters: {
         search?: string;
-        campaign_id?: string;
-        stage?: string;
-        agent_id?: string;
+        campaign_id?: string | string[];
+        stage?: string | string[];
+        agent_id?: string | string[];
         sort_by?: string;
         sort_direction?: 'asc' | 'desc';
     };
@@ -90,10 +90,16 @@ export default function LeadsIndex() {
     const scrollRef = useRef<HTMLDivElement>(null);
     const loadingRef = useRef(false);
 
+    // Helper function to parse filter values
+    const parseFilterArray = (value: string | string[] | undefined): string[] => {
+        if (!value) return [];
+        return Array.isArray(value) ? value : [value];
+    };
+
     const [searchQuery, setSearchQuery] = useState(filters.search || '');
-    const [selectedCampaign, setSelectedCampaign] = useState<string>(filters.campaign_id || 'all');
-    const [selectedStage, setSelectedStage] = useState<string>(filters.stage || 'all');
-    const [selectedAgent, setSelectedAgent] = useState<string>(filters.agent_id || 'all');
+    const [selectedCampaigns, setSelectedCampaigns] = useState<string[]>(parseFilterArray(filters.campaign_id));
+    const [selectedStages, setSelectedStages] = useState<string[]>(parseFilterArray(filters.stage));
+    const [selectedAgents, setSelectedAgents] = useState<string[]>(parseFilterArray(filters.agent_id));
     const [sortBy, setSortBy] = useState<string>(filters.sort_by || '');
     const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>(filters.sort_direction || 'asc');
     const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -109,9 +115,9 @@ export default function LeadsIndex() {
         };
 
         if (searchQuery) params.search = searchQuery;
-        if (selectedCampaign !== 'all') params.campaign_id = selectedCampaign;
-        if (selectedStage !== 'all') params.stage = selectedStage;
-        if (selectedAgent !== 'all') params.agent_id = selectedAgent;
+        if (selectedCampaigns.length > 0) params.campaign_id = selectedCampaigns;
+        if (selectedStages.length > 0) params.stage = selectedStages;
+        if (selectedAgents.length > 0) params.agent_id = selectedAgents;
         if (sortBy) {
             params.sort_by = sortBy;
             params.sort_direction = sortDirection;
@@ -134,7 +140,7 @@ export default function LeadsIndex() {
                 loadingRef.current = false;
             },
         });
-    }, [hasMorePages, isLoadingMore, currentPage, searchQuery, selectedCampaign, selectedStage, selectedAgent, sortBy, sortDirection]);
+    }, [hasMorePages, isLoadingMore, currentPage, searchQuery, selectedCampaigns, selectedStages, selectedAgents, sortBy, sortDirection]);
 
     // Infinite scroll
     useEffect(() => {
@@ -169,9 +175,9 @@ export default function LeadsIndex() {
         const currentSearch = search !== undefined ? search : searchQuery;
         
         if (currentSearch) params.search = currentSearch;
-        if (selectedCampaign !== 'all') params.campaign_id = selectedCampaign;
-        if (selectedStage !== 'all') params.stage = selectedStage;
-        if (selectedAgent !== 'all') params.agent_id = selectedAgent;
+        if (selectedCampaigns.length > 0) params.campaign_id = selectedCampaigns;
+        if (selectedStages.length > 0) params.stage = selectedStages;
+        if (selectedAgents.length > 0) params.agent_id = selectedAgents;
         if (sortBy) {
             params.sort_by = sortBy;
             params.sort_direction = sortDirection;
@@ -187,7 +193,7 @@ export default function LeadsIndex() {
                 setHasMorePages(response.props.leads.current_page < response.props.leads.last_page);
             },
         });
-    }, [searchQuery, selectedCampaign, selectedStage, selectedAgent, sortBy, sortDirection]);
+    }, [searchQuery, selectedCampaigns, selectedStages, selectedAgents, sortBy, sortDirection]);
 
     // Debounced search
     const handleSearchChange = (value: string) => {
@@ -220,9 +226,9 @@ export default function LeadsIndex() {
         }
         
         setSearchQuery('');
-        setSelectedCampaign('all');
-        setSelectedStage('all');
-        setSelectedAgent('all');
+        setSelectedCampaigns([]);
+        setSelectedStages([]);
+        setSelectedAgents([]);
         setSortBy('');
         setSortDirection('asc');
         
@@ -237,14 +243,14 @@ export default function LeadsIndex() {
     };
 
     // Handle filter changes - apply immediately
-    const handleCampaignChange = (value: string) => {
-        setSelectedCampaign(value);
+    const handleCampaignChange = (values: string[]) => {
+        setSelectedCampaigns(values);
         setTimeout(() => {
             const params: any = {};
             if (searchQuery) params.search = searchQuery;
-            if (value !== 'all') params.campaign_id = value;
-            if (selectedStage !== 'all') params.stage = selectedStage;
-            if (selectedAgent !== 'all') params.agent_id = selectedAgent;
+            if (values.length > 0) params.campaign_id = values;
+            if (selectedStages.length > 0) params.stage = selectedStages;
+            if (selectedAgents.length > 0) params.agent_id = selectedAgents;
             if (sortBy) {
                 params.sort_by = sortBy;
                 params.sort_direction = sortDirection;
@@ -263,14 +269,14 @@ export default function LeadsIndex() {
         }, 0);
     };
 
-    const handleStageChange = (value: string) => {
-        setSelectedStage(value);
+    const handleStageChange = (values: string[]) => {
+        setSelectedStages(values);
         setTimeout(() => {
             const params: any = {};
             if (searchQuery) params.search = searchQuery;
-            if (selectedCampaign !== 'all') params.campaign_id = selectedCampaign;
-            if (value !== 'all') params.stage = value;
-            if (selectedAgent !== 'all') params.agent_id = selectedAgent;
+            if (selectedCampaigns.length > 0) params.campaign_id = selectedCampaigns;
+            if (values.length > 0) params.stage = values;
+            if (selectedAgents.length > 0) params.agent_id = selectedAgents;
             if (sortBy) {
                 params.sort_by = sortBy;
                 params.sort_direction = sortDirection;
@@ -289,14 +295,14 @@ export default function LeadsIndex() {
         }, 0);
     };
 
-    const handleAgentChange = (value: string) => {
-        setSelectedAgent(value);
+    const handleAgentChange = (values: string[]) => {
+        setSelectedAgents(values);
         setTimeout(() => {
             const params: any = {};
             if (searchQuery) params.search = searchQuery;
-            if (selectedCampaign !== 'all') params.campaign_id = selectedCampaign;
-            if (selectedStage !== 'all') params.stage = selectedStage;
-            if (value !== 'all') params.agent_id = value;
+            if (selectedCampaigns.length > 0) params.campaign_id = selectedCampaigns;
+            if (selectedStages.length > 0) params.stage = selectedStages;
+            if (values.length > 0) params.agent_id = values;
             if (sortBy) {
                 params.sort_by = sortBy;
                 params.sort_direction = sortDirection;
@@ -329,9 +335,9 @@ export default function LeadsIndex() {
         // Apply sort immediately
         const params: any = {};
         if (searchQuery) params.search = searchQuery;
-        if (selectedCampaign !== 'all') params.campaign_id = selectedCampaign;
-        if (selectedStage !== 'all') params.stage = selectedStage;
-        if (selectedAgent !== 'all') params.agent_id = selectedAgent;
+        if (selectedCampaigns.length > 0) params.campaign_id = selectedCampaigns;
+        if (selectedStages.length > 0) params.stage = selectedStages;
+        if (selectedAgents.length > 0) params.agent_id = selectedAgents;
         params.sort_by = column;
         params.sort_direction = newDirection;
 
@@ -382,14 +388,14 @@ export default function LeadsIndex() {
         });
     };
 
-    const hasActiveFilters = searchQuery || selectedCampaign !== 'all' || selectedStage !== 'all' || selectedAgent !== 'all';
+    const hasActiveFilters = searchQuery || selectedCampaigns.length > 0 || selectedStages.length > 0 || selectedAgents.length > 0;
 
     const handleExport = () => {
         const params = new URLSearchParams();
         if (searchQuery) params.append('search', searchQuery);
-        if (selectedCampaign !== 'all') params.append('campaign_id', selectedCampaign);
-        if (selectedStage !== 'all') params.append('stage', selectedStage);
-        if (selectedAgent !== 'all') params.append('agent_id', selectedAgent);
+        selectedCampaigns.forEach(id => params.append('campaign_id[]', id));
+        selectedStages.forEach(stage => params.append('stage[]', stage));
+        selectedAgents.forEach(id => params.append('agent_id[]', id));
         if (sortBy) {
             params.append('sort_by', sortBy);
             params.append('sort_direction', sortDirection);
@@ -421,85 +427,68 @@ export default function LeadsIndex() {
                 </div>
 
                 {/* Search and Filters */}
-                <div className="bg-white rounded-lg border p-6 space-y-4">
-                    {/* Search Bar */}
-                    <div className="relative">
-                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                        <Input
-                            type="text"
-                            placeholder="Search by company name..."
-                            value={searchQuery}
-                            onChange={(e) => handleSearchChange(e.target.value)}
-                            className="pl-10"
-                        />
+                <div className="bg-white rounded-lg border p-4">
+                    <div className="flex flex-col md:flex-row gap-4">
+                        {/* Search Bar */}
+                        <div className="relative flex-1">
+                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                            <Input
+                                type="text"
+                                placeholder="Search by company name..."
+                                value={searchQuery}
+                                onChange={(e) => handleSearchChange(e.target.value)}
+                                className="pl-10 h-10"
+                            />
+                        </div>
+
+                        {/* Filters */}
+                        <div className="flex-1">
+                            <MultiSelect
+                                options={campaigns.map(campaign => ({
+                                    label: campaign.name,
+                                    value: campaign.id.toString()
+                                }))}
+                                selected={selectedCampaigns}
+                                onChange={handleCampaignChange}
+                                placeholder="All campaigns"
+                            />
+                        </div>
+
+                        <div className="flex-1">
+                            <MultiSelect
+                                options={stages.map(stage => ({
+                                    label: stage,
+                                    value: stage
+                                }))}
+                                selected={selectedStages}
+                                onChange={handleStageChange}
+                                placeholder="All stages"
+                            />
+                        </div>
+
+                        <div className="flex-1">
+                            <MultiSelect
+                                options={agents.map(agent => ({
+                                    label: agent.name,
+                                    value: agent.id.toString()
+                                }))}
+                                selected={selectedAgents}
+                                onChange={handleAgentChange}
+                                placeholder="All agents"
+                            />
+                        </div>
+
+                        <Button
+                            variant="outline"
+                            onClick={clearFilters}
+                            disabled={!hasActiveFilters}
+                            className="shrink-0 h-10 px-3 text-red-600 border-red-600 hover:text-red-700 hover:bg-red-50 hover:border-red-700 disabled:text-red-300 disabled:border-red-300"
+                            title="Clear all filters"
+                        >
+                            <X className="h-4 w-4" />
+                        </Button>
                     </div>
-
-                    {/* Filters */}
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                        <div>
-                            <Label htmlFor="campaign-filter">Campaign</Label>
-                            <Select value={selectedCampaign} onValueChange={handleCampaignChange}>
-                                <SelectTrigger id="campaign-filter">
-                                    <SelectValue placeholder="All campaigns" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">All Campaigns</SelectItem>
-                                    {campaigns.map(campaign => (
-                                        <SelectItem key={campaign.id} value={campaign.id.toString()}>
-                                            {campaign.name}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-
-                        <div>
-                            <Label htmlFor="stage-filter">Stage</Label>
-                            <Select value={selectedStage} onValueChange={handleStageChange}>
-                                <SelectTrigger id="stage-filter">
-                                    <SelectValue placeholder="All stages" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">All Stages</SelectItem>
-                                    {stages.map(stage => (
-                                        <SelectItem key={stage} value={stage}>
-                                            {stage}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-
-                        <div>
-                            <Label htmlFor="agent-filter">Agent</Label>
-                            <Select value={selectedAgent} onValueChange={handleAgentChange}>
-                                <SelectTrigger id="agent-filter">
-                                    <SelectValue placeholder="All agents" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">All Agents</SelectItem>
-                                    {agents.map(agent => (
-                                        <SelectItem key={agent.id} value={agent.id.toString()}>
-                                            {agent.name}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-
-                        <div className="flex items-end">
-                            {hasActiveFilters && (
-                            <Button
-                                variant="outline"
-                                    onClick={clearFilters}
-                                    className="w-full"
-                            >
-                                    Clear Filters
-                            </Button>
-                                            )}
-                                        </div>
-                                    </div>
-                                    </div>
+                </div>
 
                 {/* Leads Table */}
                 <div className="flex-1 overflow-hidden bg-white rounded-lg border">

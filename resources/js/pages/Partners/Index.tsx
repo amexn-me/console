@@ -3,6 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { MultiSelect } from '@/components/ui/multi-select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -10,7 +11,7 @@ import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import { Head, router, useForm, usePage } from '@inertiajs/react';
 import { useState, useEffect, useRef } from 'react';
-import { FileDown, Pencil, Trash2, Eye, Loader2 } from 'lucide-react';
+import { FileDown, Pencil, Trash2, Eye, Loader2, X, Search } from 'lucide-react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -59,10 +60,10 @@ interface PageProps {
     allPartners: Partner[];
     stages: string[];
     filters: {
-        partner_id?: number;
-        stage?: string;
+        partner_id?: number | number[];
+        stage?: string | string[];
         search?: string;
-        contract_status?: string;
+        contract_status?: string | string[];
     };
     [key: string]: any;
 }
@@ -95,14 +96,21 @@ export default function PartnersIndex() {
     const [editingPartner, setEditingPartner] = useState<Partner | null>(null);
     const [viewingPartner, setViewingPartner] = useState<Partner | null>(null);
 
+    // Helper function to parse filter values
+    const parseFilterArray = (value: string | string[] | number | number[] | undefined): string[] => {
+        if (!value) return [];
+        if (Array.isArray(value)) return value.map(v => v.toString());
+        return [value.toString()];
+    };
+
     const [localFilters, setLocalFilters] = useState({
-        partner_id: filters.partner_id?.toString() || 'all',
-        stage: filters.stage || 'all',
+        partner_id: parseFilterArray(filters.partner_id),
+        stage: parseFilterArray(filters.stage),
     });
 
     const [partnerFilters, setPartnerFilters] = useState({
         search: filters.search || '',
-        contract_status: filters.contract_status || 'all',
+        contract_status: parseFilterArray(filters.contract_status),
     });
 
     // Debounce timer ref for search
@@ -145,12 +153,12 @@ export default function PartnersIndex() {
         partnersLoadingRef.current = true;
         setIsLoadingMorePartners(true);
 
-        const params: Record<string, string> = {
+        const params: any = {
             partners_page: (partnersCurrentPage + 1).toString(),
         };
         
         if (partnerFilters.search) params.search = partnerFilters.search;
-        if (partnerFilters.contract_status && partnerFilters.contract_status !== 'all') params.contract_status = partnerFilters.contract_status;
+        if (partnerFilters.contract_status.length > 0) params.contract_status = partnerFilters.contract_status;
 
         router.get('/sales/partners', params, {
             preserveState: true,
@@ -177,12 +185,12 @@ export default function PartnersIndex() {
         companiesLoadingRef.current = true;
         setIsLoadingMoreCompanies(true);
 
-        const params: Record<string, string> = {
+        const params: any = {
             companies_page: (companiesCurrentPage + 1).toString(),
         };
         
-        if (localFilters.partner_id && localFilters.partner_id !== 'all') params.partner_id = localFilters.partner_id;
-        if (localFilters.stage && localFilters.stage !== 'all') params.stage = localFilters.stage;
+        if (localFilters.partner_id.length > 0) params.partner_id = localFilters.partner_id;
+        if (localFilters.stage.length > 0) params.stage = localFilters.stage;
 
         router.get('/sales/partners', params, {
             preserveState: true,
@@ -323,7 +331,7 @@ export default function PartnersIndex() {
         }
     };
 
-    const handlePartnerFilterChange = (key: string, value: string) => {
+    const handlePartnerFilterChange = (key: string, value: string | string[]) => {
         const newFilters = { ...partnerFilters, [key]: value };
         setPartnerFilters(newFilters);
 
@@ -335,9 +343,9 @@ export default function PartnersIndex() {
         // For search, apply debouncing
         if (key === 'search') {
             searchDebounceTimer.current = setTimeout(() => {
-                const params: Record<string, string> = {};
+                const params: any = {};
                 if (newFilters.search) params.search = newFilters.search;
-                if (newFilters.contract_status && newFilters.contract_status !== 'all') params.contract_status = newFilters.contract_status;
+                if (Array.isArray(newFilters.contract_status) && newFilters.contract_status.length > 0) params.contract_status = newFilters.contract_status;
 
                 router.get('/sales/partners', params, {
                     preserveState: true,
@@ -347,39 +355,47 @@ export default function PartnersIndex() {
             }, 500); // 500ms debounce
         } else {
             // For other filters (like contract_status), apply immediately
-            const params: Record<string, string> = {};
-            if (newFilters.search) params.search = newFilters.search;
-            if (newFilters.contract_status && newFilters.contract_status !== 'all') params.contract_status = newFilters.contract_status;
+            setTimeout(() => {
+                const params: any = {};
+                if (newFilters.search) params.search = newFilters.search;
+                if (Array.isArray(newFilters.contract_status) && newFilters.contract_status.length > 0) params.contract_status = newFilters.contract_status;
+
+                router.get('/sales/partners', params, {
+                    preserveState: true,
+                    preserveScroll: true,
+                    only: ['partners'],
+                });
+            }, 0);
+        }
+    };
+
+    const handleCompanyFilterChange = (key: string, value: string[]) => {
+        const newFilters = { ...localFilters, [key]: value };
+        setLocalFilters(newFilters);
+
+        setTimeout(() => {
+            const params: any = {};
+            if (newFilters.partner_id.length > 0) params.partner_id = newFilters.partner_id;
+            if (newFilters.stage.length > 0) params.stage = newFilters.stage;
 
             router.get('/sales/partners', params, {
                 preserveState: true,
                 preserveScroll: true,
-                only: ['partners'],
+                only: ['partnerCompanies'],
             });
-        }
-    };
-
-    const handleCompanyFilterChange = (key: string, value: string) => {
-        const newFilters = { ...localFilters, [key]: value };
-        setLocalFilters(newFilters);
-
-        const params: Record<string, string> = {};
-        if (newFilters.partner_id && newFilters.partner_id !== 'all') params.partner_id = newFilters.partner_id;
-        if (newFilters.stage && newFilters.stage !== 'all') params.stage = newFilters.stage;
-
-        router.get('/sales/partners', params, {
-            preserveState: false,
-            preserveScroll: false,
-        });
+        }, 0);
     };
 
     const handleExportCompanies = () => {
         const params = new URLSearchParams();
-        if (localFilters.partner_id && localFilters.partner_id !== 'all') params.append('partner_id', localFilters.partner_id);
-        if (localFilters.stage && localFilters.stage !== 'all') params.append('stage', localFilters.stage);
+        localFilters.partner_id.forEach(id => params.append('partner_id[]', id));
+        localFilters.stage.forEach(stage => params.append('stage[]', stage));
 
         window.location.href = `/sales/partners/companies/export?${params.toString()}`;
     };
+
+    const hasPartnerFilters = partnerFilters.search || partnerFilters.contract_status.length > 0;
+    const hasCompanyFilters = localFilters.partner_id.length > 0 || localFilters.stage.length > 0;
 
     const getStatusColor = (status: string) => {
         switch (status.toLowerCase()) {
@@ -422,44 +438,47 @@ export default function PartnersIndex() {
                     {/* All Partners Tab */}
                     <TabsContent value="partners" className="space-y-4 h-full flex flex-col overflow-hidden">
                         {/* Partner Filters */}
-                        <div className="flex gap-3 items-center rounded-lg border bg-card p-4">
-                            <div className="relative flex-1 max-w-xs">
-                                <Input
-                                    placeholder="Search by name or email..."
-                                    value={partnerFilters.search}
-                                    onChange={(e) => handlePartnerFilterChange('search', e.target.value)}
-                                />
-                            </div>
+                        <div className="bg-white rounded-lg border p-4">
+                            <div className="flex flex-col md:flex-row gap-4">
+                                <div className="relative flex-1">
+                                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                                    <Input
+                                        placeholder="Search by name or email..."
+                                        value={partnerFilters.search}
+                                        onChange={(e) => handlePartnerFilterChange('search', e.target.value)}
+                                        className="pl-10 h-10"
+                                    />
+                                </div>
 
-                            <Select 
-                                value={partnerFilters.contract_status} 
-                                onValueChange={(val) => handlePartnerFilterChange('contract_status', val)}
-                            >
-                                <SelectTrigger className="w-[200px]">
-                                    <SelectValue placeholder="Contract Status" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">All Statuses</SelectItem>
-                                    <SelectItem value="Early Stage">Early Stage</SelectItem>
-                                    <SelectItem value="Demo completed">Demo completed</SelectItem>
-                                    <SelectItem value="Pending contract">Pending contract</SelectItem>
-                                    <SelectItem value="Contract sent">Contract sent</SelectItem>
-                                    <SelectItem value="Contract signed">Contract signed</SelectItem>
-                                    <SelectItem value="Terminated">Terminated</SelectItem>
-                                </SelectContent>
-                            </Select>
+                                <div className="flex-1">
+                                    <MultiSelect
+                                        options={[
+                                            { label: 'Early Stage', value: 'Early Stage' },
+                                            { label: 'Demo completed', value: 'Demo completed' },
+                                            { label: 'Pending contract', value: 'Pending contract' },
+                                            { label: 'Contract sent', value: 'Contract sent' },
+                                            { label: 'Contract signed', value: 'Contract signed' },
+                                            { label: 'Terminated', value: 'Terminated' }
+                                        ]}
+                                        selected={partnerFilters.contract_status}
+                                        onChange={(values) => handlePartnerFilterChange('contract_status', values)}
+                                        placeholder="Contract Status"
+                                    />
+                                </div>
 
-                            {(partnerFilters.search || partnerFilters.contract_status !== 'all') && (
                                 <Button
                                     variant="outline"
                                     onClick={() => {
-                                        setPartnerFilters({ search: '', contract_status: 'all' });
-                                        router.get('/sales/partners', {}, { preserveState: false, preserveScroll: false });
+                                        setPartnerFilters({ search: '', contract_status: [] });
+                                        router.get('/sales/partners', {}, { preserveState: true, preserveScroll: true, only: ['partners'] });
                                     }}
+                                    disabled={!hasPartnerFilters}
+                                    className="shrink-0 h-10 px-3 text-red-600 border-red-600 hover:text-red-700 hover:bg-red-50 hover:border-red-700 disabled:text-red-300 disabled:border-red-300"
+                                    title="Clear all filters"
                                 >
-                                    Clear Filters
+                                    <X className="h-4 w-4" />
                                 </Button>
-                            )}
+                            </div>
                         </div>
 
                         <div className="flex items-center justify-between text-sm text-muted-foreground">
@@ -549,57 +568,54 @@ export default function PartnersIndex() {
                     {/* Companies with Partner Assignments Tab */}
                     <TabsContent value="companies" className="space-y-4 h-full flex flex-col overflow-hidden">
                         {/* Filters */}
-                        <div className="flex gap-3 items-center rounded-lg border bg-card p-4">
-                            <Select value={localFilters.partner_id} onValueChange={(val) => handleCompanyFilterChange('partner_id', val)}>
-                                <SelectTrigger className="w-[250px]">
-                                    <SelectValue placeholder="Filter by Partner" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">All Partners</SelectItem>
-                                    {allPartners.map((partner) => (
-                                        <SelectItem key={partner.id} value={partner.id.toString()}>
-                                            {partner.name}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                        <div className="bg-white rounded-lg border p-4">
+                            <div className="flex flex-col md:flex-row gap-4">
+                                <div className="flex-1">
+                                    <MultiSelect
+                                        options={allPartners.map(partner => ({
+                                            label: partner.name,
+                                            value: partner.id.toString()
+                                        }))}
+                                        selected={localFilters.partner_id}
+                                        onChange={(values) => handleCompanyFilterChange('partner_id', values)}
+                                        placeholder="All partners"
+                                    />
+                                </div>
 
-                            <Select value={localFilters.stage} onValueChange={(val) => handleCompanyFilterChange('stage', val)}>
-                                <SelectTrigger className="w-[250px]">
-                                    <SelectValue placeholder="Filter by Stage" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">All Stages</SelectItem>
-                                    {stages.map((stage) => (
-                                        <SelectItem key={stage} value={stage}>
-                                            {stage}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                                <div className="flex-1">
+                                    <MultiSelect
+                                        options={stages.map(stage => ({
+                                            label: stage,
+                                            value: stage
+                                        }))}
+                                        selected={localFilters.stage}
+                                        onChange={(values) => handleCompanyFilterChange('stage', values)}
+                                        placeholder="All stages"
+                                    />
+                                </div>
 
-                            <Button onClick={handleExportCompanies} className="ml-auto">
-                                <FileDown className="mr-2 h-4 w-4" />
-                                Export to Excel
-                            </Button>
+                                <Button
+                                    variant="outline"
+                                    onClick={() => {
+                                        setLocalFilters({ partner_id: [], stage: [] });
+                                        router.get('/sales/partners', {}, { preserveState: true, preserveScroll: true, only: ['partnerCompanies'] });
+                                    }}
+                                    disabled={!hasCompanyFilters}
+                                    className="shrink-0 h-10 px-3 text-red-600 border-red-600 hover:text-red-700 hover:bg-red-50 hover:border-red-700 disabled:text-red-300 disabled:border-red-300"
+                                    title="Clear all filters"
+                                >
+                                    <X className="h-4 w-4" />
+                                </Button>
+
+                                <Button onClick={handleExportCompanies} className="shrink-0 h-10">
+                                    <FileDown className="mr-2 h-4 w-4" />
+                                    Export
+                                </Button>
+                            </div>
                         </div>
 
-                        <div className="flex items-center justify-between text-sm text-muted-foreground">
-                            <div>
-                                Total: {companiesTotalCount} (Loaded: {partnerCompanies.length})
-                            </div>
-                            {(localFilters.partner_id !== 'all' || localFilters.stage !== 'all') && (
-                                <Button 
-                                    variant="ghost" 
-                                    size="sm" 
-                                    onClick={() => {
-                                        setLocalFilters({ partner_id: 'all', stage: 'all' });
-                                        router.get('/sales/partners', {}, { preserveState: false, preserveScroll: false });
-                                    }}
-                                >
-                                    Clear Filters
-                                </Button>
-                            )}
+                        <div className="flex items-center justify-end text-sm text-muted-foreground">
+                            Total: {companiesTotalCount} (Loaded: {partnerCompanies.length})
                         </div>
 
                         <div className="flex-1 overflow-hidden rounded-lg border flex flex-col">

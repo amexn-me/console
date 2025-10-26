@@ -2,13 +2,14 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { MultiSelect } from '@/components/ui/multi-select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import { Head, router, usePage, useForm } from '@inertiajs/react';
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { FileDown, Search, Loader2, Plus, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { FileDown, Search, Loader2, Plus, ArrowUpDown, ArrowUp, ArrowDown, X } from 'lucide-react';
 import { usePermissions } from '@/hooks/use-permissions';
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -69,11 +70,11 @@ interface PageProps {
     agents: Agent[];
     stages: string[];
     filters: {
-        stage?: string;
-        agent_id?: number;
+        stage?: string | string[];
+        agent_id?: number | number[];
         search?: string;
-        pic_status?: string;
-        interest_level?: string;
+        pic_status?: string | string[];
+        interest_level?: string | string[];
         sort_by?: string;
         sort_direction?: string;
     };
@@ -94,12 +95,19 @@ export default function CompaniesIndex() {
     const isInitialLoad = useRef(true);
     const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
 
+    // Helper function to parse filter values
+    const parseFilterArray = (value: string | string[] | number | number[] | undefined): string[] => {
+        if (!value) return [];
+        if (Array.isArray(value)) return value.map(v => v.toString());
+        return [value.toString()];
+    };
+
     const [localFilters, setLocalFilters] = useState({
-        stage: filters.stage || 'all',
-        agent_id: filters.agent_id?.toString() || 'all',
+        stage: parseFilterArray(filters.stage),
+        agent_id: parseFilterArray(filters.agent_id),
         search: filters.search || '',
-        pic_status: filters.pic_status || 'all',
-        interest_level: filters.interest_level || 'all',
+        pic_status: parseFilterArray(filters.pic_status),
+        interest_level: parseFilterArray(filters.interest_level),
         sort_by: filters.sort_by || 'created_at',
         sort_direction: filters.sort_direction || 'desc',
     });
@@ -138,13 +146,13 @@ export default function CompaniesIndex() {
     }, [localFilters.search]);
 
     const applyFilters = () => {
-        const params: Record<string, string> = {};
+        const params: any = {};
         
-        if (localFilters.stage && localFilters.stage !== 'all') params.stage = localFilters.stage;
-        if (localFilters.agent_id && localFilters.agent_id !== 'all') params.agent_id = localFilters.agent_id;
+        if (localFilters.stage.length > 0) params.stage = localFilters.stage;
+        if (localFilters.agent_id.length > 0) params.agent_id = localFilters.agent_id;
         if (localFilters.search) params.search = localFilters.search;
-        if (localFilters.pic_status && localFilters.pic_status !== 'all') params.pic_status = localFilters.pic_status;
-        if (localFilters.interest_level && localFilters.interest_level !== 'all') params.interest_level = localFilters.interest_level;
+        if (localFilters.pic_status.length > 0) params.pic_status = localFilters.pic_status;
+        if (localFilters.interest_level.length > 0) params.interest_level = localFilters.interest_level;
         if (localFilters.sort_by) params.sort_by = localFilters.sort_by;
         if (localFilters.sort_direction) params.sort_direction = localFilters.sort_direction;
 
@@ -155,26 +163,28 @@ export default function CompaniesIndex() {
         });
     };
 
-    const handleFilterChange = (key: string, value: string) => {
+    const handleFilterChange = (key: string, value: string | string[]) => {
         const newFilters = { ...localFilters, [key]: value };
         setLocalFilters(newFilters);
 
         if (key !== 'search') {
             // Apply immediately for non-search filters
-            const params: Record<string, string> = {};
-            if (newFilters.stage && newFilters.stage !== 'all') params.stage = newFilters.stage;
-            if (newFilters.agent_id && newFilters.agent_id !== 'all') params.agent_id = newFilters.agent_id;
-            if (newFilters.search) params.search = newFilters.search;
-            if (newFilters.pic_status && newFilters.pic_status !== 'all') params.pic_status = newFilters.pic_status;
-            if (newFilters.interest_level && newFilters.interest_level !== 'all') params.interest_level = newFilters.interest_level;
-            if (newFilters.sort_by) params.sort_by = newFilters.sort_by;
-            if (newFilters.sort_direction) params.sort_direction = newFilters.sort_direction;
+            setTimeout(() => {
+                const params: any = {};
+                if (Array.isArray(newFilters.stage) && newFilters.stage.length > 0) params.stage = newFilters.stage;
+                if (Array.isArray(newFilters.agent_id) && newFilters.agent_id.length > 0) params.agent_id = newFilters.agent_id;
+                if (newFilters.search) params.search = newFilters.search;
+                if (Array.isArray(newFilters.pic_status) && newFilters.pic_status.length > 0) params.pic_status = newFilters.pic_status;
+                if (Array.isArray(newFilters.interest_level) && newFilters.interest_level.length > 0) params.interest_level = newFilters.interest_level;
+                if (newFilters.sort_by) params.sort_by = newFilters.sort_by;
+                if (newFilters.sort_direction) params.sort_direction = newFilters.sort_direction;
 
-            router.get('/sales/companies', params, {
-                preserveState: true,
-                preserveScroll: true,
-                only: ['companies'],
-            });
+                router.get('/sales/companies', params, {
+                    preserveState: true,
+                    preserveScroll: true,
+                    only: ['companies'],
+                });
+            }, 0);
         }
     };
 
@@ -184,15 +194,15 @@ export default function CompaniesIndex() {
         loadingRef.current = true;
         setIsLoadingMore(true);
 
-        const params: Record<string, string> = {
+        const params: any = {
             page: (currentPage + 1).toString(),
         };
         
-        if (localFilters.stage && localFilters.stage !== 'all') params.stage = localFilters.stage;
-        if (localFilters.agent_id && localFilters.agent_id !== 'all') params.agent_id = localFilters.agent_id;
+        if (localFilters.stage.length > 0) params.stage = localFilters.stage;
+        if (localFilters.agent_id.length > 0) params.agent_id = localFilters.agent_id;
         if (localFilters.search) params.search = localFilters.search;
-        if (localFilters.pic_status && localFilters.pic_status !== 'all') params.pic_status = localFilters.pic_status;
-        if (localFilters.interest_level && localFilters.interest_level !== 'all') params.interest_level = localFilters.interest_level;
+        if (localFilters.pic_status.length > 0) params.pic_status = localFilters.pic_status;
+        if (localFilters.interest_level.length > 0) params.interest_level = localFilters.interest_level;
         if (localFilters.sort_by) params.sort_by = localFilters.sort_by;
         if (localFilters.sort_direction) params.sort_direction = localFilters.sort_direction;
 
@@ -260,12 +270,12 @@ export default function CompaniesIndex() {
         setLocalFilters(newFilters);
         
         // Apply sort immediately
-        const params: Record<string, string> = {};
-        if (newFilters.stage && newFilters.stage !== 'all') params.stage = newFilters.stage;
-        if (newFilters.agent_id && newFilters.agent_id !== 'all') params.agent_id = newFilters.agent_id;
+        const params: any = {};
+        if (newFilters.stage.length > 0) params.stage = newFilters.stage;
+        if (newFilters.agent_id.length > 0) params.agent_id = newFilters.agent_id;
         if (newFilters.search) params.search = newFilters.search;
-        if (newFilters.pic_status && newFilters.pic_status !== 'all') params.pic_status = newFilters.pic_status;
-        if (newFilters.interest_level && newFilters.interest_level !== 'all') params.interest_level = newFilters.interest_level;
+        if (newFilters.pic_status.length > 0) params.pic_status = newFilters.pic_status;
+        if (newFilters.interest_level.length > 0) params.interest_level = newFilters.interest_level;
         params.sort_by = column;
         params.sort_direction = newDirection;
 
@@ -287,11 +297,11 @@ export default function CompaniesIndex() {
 
     const handleExport = () => {
         const params = new URLSearchParams();
-        if (localFilters.stage && localFilters.stage !== 'all') params.append('stage', localFilters.stage);
-        if (localFilters.agent_id && localFilters.agent_id !== 'all') params.append('agent_id', localFilters.agent_id);
+        localFilters.stage.forEach(s => params.append('stage[]', s));
+        localFilters.agent_id.forEach(a => params.append('agent_id[]', a));
         if (localFilters.search) params.append('search', localFilters.search);
-        if (localFilters.pic_status && localFilters.pic_status !== 'all') params.append('pic_status', localFilters.pic_status);
-        if (localFilters.interest_level && localFilters.interest_level !== 'all') params.append('interest_level', localFilters.interest_level);
+        localFilters.pic_status.forEach(p => params.append('pic_status[]', p));
+        localFilters.interest_level.forEach(i => params.append('interest_level[]', i));
         if (localFilters.sort_by) params.append('sort_by', localFilters.sort_by);
         if (localFilters.sort_direction) params.append('sort_direction', localFilters.sort_direction);
 
@@ -300,11 +310,11 @@ export default function CompaniesIndex() {
 
     const clearFilters = () => {
         setLocalFilters({
-            stage: 'all',
-            agent_id: 'all',
+            stage: [],
+            agent_id: [],
             search: '',
-            pic_status: 'all',
-            interest_level: 'all',
+            pic_status: [],
+            interest_level: [],
             sort_by: 'created_at',
             sort_direction: 'desc',
         });
@@ -314,6 +324,8 @@ export default function CompaniesIndex() {
             only: ['companies'],
         });
     };
+
+    const hasActiveFilters = localFilters.search || localFilters.stage.length > 0 || localFilters.agent_id.length > 0 || localFilters.pic_status.length > 0 || localFilters.interest_level.length > 0;
 
     const getPICStatus = (company: Company) => {
         const hasPIC = company.contacts.some(c => c.is_pic);
@@ -340,7 +352,12 @@ export default function CompaniesIndex() {
             <Head title="Companies" />
             <div className="flex h-screen flex-col gap-4 rounded-xl p-4 overflow-hidden">
                 <div className="mb-2 flex items-center justify-between">
-                    <h1 className="text-2xl font-bold">Companies</h1>
+                    <div>
+                        <h1 className="text-2xl font-bold">Companies</h1>
+                        <p className="text-sm text-muted-foreground mt-1">
+                            Total: {totalCount} (Loaded: {companies.length})
+                        </p>
+                    </div>
                     <div className="flex gap-2">
                         {(permissions.isSuperAdmin || permissions.isSegmentAdmin) && (
                             <Button onClick={() => setIsAddDialogOpen(true)}>
@@ -356,94 +373,80 @@ export default function CompaniesIndex() {
                 </div>
 
                 {/* Filters */}
-                <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-3 rounded-lg border bg-card p-4">
-                    <div className="space-y-2">
-                        <Label htmlFor="search">Search</Label>
-                        <div className="relative">
-                            <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                <div className="bg-white rounded-lg border p-4">
+                    <div className="flex flex-col md:flex-row gap-4">
+                        {/* Search Bar */}
+                        <div className="relative flex-1">
+                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                             <Input
-                                id="search"
+                                type="text"
                                 placeholder="Search companies..."
                                 value={localFilters.search}
                                 onChange={(e) => handleFilterChange('search', e.target.value)}
-                                className="pl-9"
+                                className="pl-10 h-10"
                             />
                         </div>
-                    </div>
 
-                    <div className="space-y-2">
-                        <Label htmlFor="stage-filter">Stage</Label>
-                        <Select value={localFilters.stage} onValueChange={(val) => handleFilterChange('stage', val)}>
-                            <SelectTrigger id="stage-filter">
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">All Stages</SelectItem>
-                                {stages.map((stage) => (
-                                    <SelectItem key={stage} value={stage}>
-                                        {stage}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    </div>
+                        {/* Filters */}
+                        <div className="flex-1">
+                            <MultiSelect
+                                options={stages.map(stage => ({
+                                    label: stage,
+                                    value: stage
+                                }))}
+                                selected={localFilters.stage}
+                                onChange={(values) => handleFilterChange('stage', values)}
+                                placeholder="All stages"
+                            />
+                        </div>
 
-                    <div className="space-y-2">
-                        <Label htmlFor="agent-filter">Agent</Label>
-                        <Select value={localFilters.agent_id} onValueChange={(val) => handleFilterChange('agent_id', val)}>
-                            <SelectTrigger id="agent-filter">
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">All Agents</SelectItem>
-                                {agents.map((agent) => (
-                                    <SelectItem key={agent.id} value={agent.id.toString()}>
-                                        {agent.name}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    </div>
+                        <div className="flex-1">
+                            <MultiSelect
+                                options={agents.map(agent => ({
+                                    label: agent.name,
+                                    value: agent.id.toString()
+                                }))}
+                                selected={localFilters.agent_id}
+                                onChange={(values) => handleFilterChange('agent_id', values)}
+                                placeholder="All agents"
+                            />
+                        </div>
 
-                    <div className="space-y-2">
-                        <Label htmlFor="pic-status-filter">PIC Status</Label>
-                        <Select value={localFilters.pic_status} onValueChange={(val) => handleFilterChange('pic_status', val)}>
-                            <SelectTrigger id="pic-status-filter">
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">All</SelectItem>
-                                <SelectItem value="identified">Identified</SelectItem>
-                                <SelectItem value="not_identified">Not Identified</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
+                        <div className="flex-1">
+                            <MultiSelect
+                                options={[
+                                    { label: 'Identified', value: 'identified' },
+                                    { label: 'Not Identified', value: 'not_identified' }
+                                ]}
+                                selected={localFilters.pic_status}
+                                onChange={(values) => handleFilterChange('pic_status', values)}
+                                placeholder="PIC Status"
+                            />
+                        </div>
 
-                    <div className="space-y-2">
-                        <Label htmlFor="interest-level-filter">Interest Level</Label>
-                        <Select value={localFilters.interest_level} onValueChange={(val) => handleFilterChange('interest_level', val)}>
-                            <SelectTrigger id="interest-level-filter">
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">All Levels</SelectItem>
-                                <SelectItem value="Cold">Cold</SelectItem>
-                                <SelectItem value="Warm">Warm</SelectItem>
-                                <SelectItem value="Hot">Hot</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
-                </div>
+                        <div className="flex-1">
+                            <MultiSelect
+                                options={[
+                                    { label: 'Cold', value: 'Cold' },
+                                    { label: 'Warm', value: 'Warm' },
+                                    { label: 'Hot', value: 'Hot' }
+                                ]}
+                                selected={localFilters.interest_level}
+                                onChange={(values) => handleFilterChange('interest_level', values)}
+                                placeholder="Interest Level"
+                            />
+                        </div>
 
-                <div className="flex items-center justify-between text-sm text-muted-foreground">
-                    <div>
-                        Total: {totalCount} (Loaded: {companies.length})
-                    </div>
-                    {(localFilters.stage !== 'all' || localFilters.agent_id !== 'all' || localFilters.search || localFilters.pic_status !== 'all' || localFilters.interest_level !== 'all') && (
-                        <Button variant="ghost" size="sm" onClick={clearFilters}>
-                            Clear Filters
+                        <Button
+                            variant="outline"
+                            onClick={clearFilters}
+                            disabled={!hasActiveFilters}
+                            className="shrink-0 h-10 px-3 text-red-600 border-red-600 hover:text-red-700 hover:bg-red-50 hover:border-red-700 disabled:text-red-300 disabled:border-red-300"
+                            title="Clear all filters"
+                        >
+                            <X className="h-4 w-4" />
                         </Button>
-                    )}
+                    </div>
                 </div>
 
                 {/* Table */}

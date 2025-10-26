@@ -33,17 +33,20 @@ class LeadsExport implements FromQuery, WithHeadings, WithMapping
             $query->where('agent_id', $user->id);
         }
 
-        // Apply filters
+        // Apply filters (supports single value or array)
         if (!empty($this->filters['campaign_id'])) {
-            $query->where('campaign_id', $this->filters['campaign_id']);
+            $campaignIds = is_array($this->filters['campaign_id']) ? $this->filters['campaign_id'] : [$this->filters['campaign_id']];
+            $query->whereIn('campaign_id', $campaignIds);
         }
 
         if (!empty($this->filters['stage'])) {
-            $query->where('stage', $this->filters['stage']);
+            $stages = is_array($this->filters['stage']) ? $this->filters['stage'] : [$this->filters['stage']];
+            $query->whereIn('stage', $stages);
         }
 
         if (!empty($this->filters['agent_id'])) {
-            $query->where('agent_id', $this->filters['agent_id']);
+            $agentIds = is_array($this->filters['agent_id']) ? $this->filters['agent_id'] : [$this->filters['agent_id']];
+            $query->whereIn('agent_id', $agentIds);
         }
 
         if (!empty($this->filters['search'])) {

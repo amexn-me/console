@@ -46,19 +46,22 @@ class LeadsController extends Controller
             $query->where('agent_id', $user->id);
         }
 
-        // Filter by campaign if specified
+        // Filter by campaign if specified (supports single value or array)
         if ($request->filled('campaign_id')) {
-            $query->where('campaign_id', $request->campaign_id);
+            $campaignIds = is_array($request->campaign_id) ? $request->campaign_id : [$request->campaign_id];
+            $query->whereIn('campaign_id', $campaignIds);
         }
 
-        // Filter by stage if specified
+        // Filter by stage if specified (supports single value or array)
         if ($request->filled('stage')) {
-            $query->where('stage', $request->stage);
+            $stages = is_array($request->stage) ? $request->stage : [$request->stage];
+            $query->whereIn('stage', $stages);
         }
 
-        // Filter by agent if specified
+        // Filter by agent if specified (supports single value or array)
         if ($request->filled('agent_id')) {
-            $query->where('agent_id', $request->agent_id);
+            $agentIds = is_array($request->agent_id) ? $request->agent_id : [$request->agent_id];
+            $query->whereIn('agent_id', $agentIds);
         }
 
         // Search by company name (case insensitive)
@@ -416,7 +419,7 @@ class LeadsController extends Controller
 
         $validated = $request->validate([
             'conversation_method' => 'required|string',
-            'conversation_connected' => 'nullable|string',
+            'conversation_connected' => 'required|string',
             'contact_id' => 'nullable|integer|exists:contact,id',
             'next_followup_date' => 'nullable|date',
             'followup_time' => 'nullable|string',

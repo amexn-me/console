@@ -5,12 +5,29 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { CheckCircle2, Clock, TrendingUp, AlertCircle, CalendarClock } from 'lucide-react';
 import { format } from 'date-fns';
+import { useState, useEffect } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
         title: 'Dashboard',
         href: '/dashboard',
     },
+];
+
+interface Timezone {
+    id: string;
+    name: string;
+    flag: string;
+    timezone: string;
+}
+
+const timezones: Timezone[] = [
+    { id: 'system', name: 'SYS', flag: '💻', timezone: '' },
+    { id: 'uae', name: 'UAE', flag: '🇦🇪', timezone: 'Asia/Dubai' },
+    { id: 'india', name: 'IND', flag: '🇮🇳', timezone: 'Asia/Kolkata' },
+    { id: 'nigeria', name: 'NGR', flag: '🇳🇬', timezone: 'Africa/Lagos' },
+    { id: 'malaysia', name: 'MYS', flag: '🇲🇾', timezone: 'Asia/Kuala_Lumpur' },
+    { id: 'saudi', name: 'KSA', flag: '🇸🇦', timezone: 'Asia/Riyadh' },
 ];
 
 interface Company {
@@ -49,6 +66,12 @@ interface Activity {
     next_followup_datetime: string;
     remarks?: string;
     notes?: string;
+    company_name?: string;
+    campaign_name?: string;
+    contact_name?: string;
+    agent_name?: string;
+    interest_level?: string;
+    lead_id?: number;
 }
 
 interface DashboardStats {
@@ -62,18 +85,94 @@ interface DashboardFollowups {
     upcoming: Activity[];
 }
 
-interface DashboardProps {
+interface PageProps {
     stats: DashboardStats;
     followups: DashboardFollowups;
+    [key: string]: any;
 }
 
 export default function Dashboard() {
-    const { stats, followups } = usePage<DashboardProps>().props;
+    const { stats, followups } = usePage<PageProps>().props;
+
+    // Get selected timezone from localStorage
+    const [selectedTimezone, setSelectedTimezone] = useState<Timezone>(() => {
+        const saved = localStorage.getItem('selectedTimezone');
+        if (saved) {
+            const found = timezones.find(tz => tz.id === saved);
+            if (found) return found;
+        }
+        return timezones[0];
+    });
+
+    // Listen for timezone changes from localStorage
+    useEffect(() => {
+        const handleStorageChange = () => {
+            const saved = localStorage.getItem('selectedTimezone');
+            if (saved) {
+                const found = timezones.find(tz => tz.id === saved);
+                if (found && found.id !== selectedTimezone.id) {
+                    setSelectedTimezone(found);
+                }
+            }
+        };
+
+        window.addEventListener('storage', handleStorageChange);
+        
+        // Also check periodically for changes in the same tab
+        const interval = setInterval(handleStorageChange, 1000);
+
+        return () => {
+            window.removeEventListener('storage', handleStorageChange);
+            clearInterval(interval);
+        };
+    }, [selectedTimezone.id]);
+
+    // Convert UTC datetime to selected timezone
+    const convertToTimezone = (utcDatetime: string): Date => {
+        // Parse the UTC datetime string
+        const utcDate = new Date(utcDatetime);
+        return utcDate;
+    };
+
+    // Format datetime in selected timezone
+    const formatInTimezone = (datetime: string, formatStr: string): string => {
+        const date = convertToTimezone(datetime);
+        
+        if (selectedTimezone.id === 'system') {
+            // Use system timezone
+            return format(date, formatStr);
+        } else {
+            // Format for selected timezone
+            const options: Intl.DateTimeFormatOptions = {
+                timeZone: selectedTimezone.timezone,
+                year: 'numeric',
+                month: 'short',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: true,
+            };
+            
+            const formatter = new Intl.DateTimeFormat('en-US', options);
+            return formatter.format(date);
+        }
+    };
 
     const getRelativeTime = (datetime: string) => {
-        const date = new Date(datetime);
+        const date = convertToTimezone(datetime);
         const now = new Date();
-        const diffMs = date.getTime() - now.getTime();
+        
+        // Get the current time in the selected timezone
+        let nowInTimezone: number;
+        if (selectedTimezone.id === 'system') {
+            nowInTimezone = now.getTime();
+        } else {
+            // Get current time in selected timezone by formatting and parsing
+            const nowStr = now.toLocaleString('en-US', { timeZone: selectedTimezone.timezone });
+            nowInTimezone = new Date(nowStr).getTime();
+        }
+        
+        const diffMs = date.getTime() - nowInTimezone;
         const diffMins = Math.floor(diffMs / (1000 * 60));
         const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
         const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
@@ -163,57 +262,34 @@ export default function Dashboard() {
                                     <p>All caught up! No overdue followups.</p>
                                 </div>
                             ) : (
-                                <div className="space-y-4 max-h-[600px] overflow-y-auto">
+                                <div className="space-y-2 max-h-[600px] overflow-y-auto">
                                     {followups.overdue.map((followup) => (
-                                        <div
+                                        <Link
                                             key={followup.id}
-                                            className="p-4 rounded-lg border border-red-200 bg-red-50 dark:border-red-900 dark:bg-red-950/20"
+                                            href={followup.lead_id ? `/sales/leads/${followup.lead_id}` : '#'}
+                                            className="flex items-center justify-between gap-3 p-2 rounded-md hover:bg-red-50 dark:hover:bg-red-950/20 border-l-2 border-r-2 border-red-500 cursor-pointer transition-colors"
                                         >
-                                            <div className="flex items-start justify-between gap-2 mb-2">
-                                                <div className="flex-1">
-                                                    <div className="font-semibold text-red-700 dark:text-red-300">
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="font-medium text-sm text-red-700 dark:text-red-300 truncate">
                                                         {followup.company_name}
-                                                    </div>
-                                                    {followup.campaign_name && (
-                                                        <Badge variant="outline" className="mt-1 text-xs">
-                                                            {followup.campaign_name}
-                                                        </Badge>
-                                                    )}
-                                                </div>
-                                                <Badge variant="destructive" className="text-xs">
-                                                    {getRelativeTime(followup.next_followup_datetime)}
-                                                </Badge>
-                                            </div>
-                                            <div className="space-y-1 text-sm">
-                                                <div className="flex items-center gap-2 text-muted-foreground">
-                                                    <CalendarClock className="h-3 w-3" />
-                                                    <span>
-                                                        {format(new Date(followup.next_followup_datetime), 'MMM dd, yyyy h:mm a')}
+                                                    </span>
+                                                    <span className="text-xs text-muted-foreground">•</span>
+                                                    <span className="text-xs text-muted-foreground truncate">
+                                                        {followup.contact_name}
                                                     </span>
                                                 </div>
-                                                <div className="text-xs">
-                                                    <span className="font-medium">Contact:</span> {followup.contact_name}
+                                                <div className="flex items-center gap-1 text-xs text-muted-foreground mt-0.5">
+                                                    <CalendarClock className="h-3 w-3" />
+                                                    <span>
+                                                        {formatInTimezone(followup.next_followup_datetime, 'MMM dd, h:mm a')}
+                                                    </span>
                                                 </div>
-                                                <div className="text-xs">
-                                                    <span className="font-medium">Agent:</span> {followup.agent_name}
-                                                </div>
-                                                {followup.interest_level && (
-                                                    <div className="text-xs">
-                                                        <span className="font-medium">Interest:</span> {followup.interest_level}
-                                                    </div>
-                                                )}
                                             </div>
-                                            {followup.lead_id && (
-                                                <div className="mt-3">
-                                                    <Link
-                                                        href={`/sales/leads/${followup.lead_id}`}
-                                                        className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-red-600 text-white hover:bg-red-700 h-8 px-3"
-                                                    >
-                                                        View Lead
-                                                    </Link>
-                                                </div>
-                                            )}
-                                        </div>
+                                            <Badge variant="destructive" className="text-xs whitespace-nowrap">
+                                                {getRelativeTime(followup.next_followup_datetime)}
+                                            </Badge>
+                                        </Link>
                                     ))}
                                 </div>
                             )}
@@ -238,57 +314,34 @@ export default function Dashboard() {
                                     <p>No upcoming followups scheduled.</p>
                                 </div>
                             ) : (
-                                <div className="space-y-4 max-h-[600px] overflow-y-auto">
+                                <div className="space-y-2 max-h-[600px] overflow-y-auto">
                                     {followups.upcoming.map((followup) => (
-                                        <div
+                                        <Link
                                             key={followup.id}
-                                            className="p-4 rounded-lg border"
+                                            href={followup.lead_id ? `/sales/leads/${followup.lead_id}` : '#'}
+                                            className="flex items-center justify-between gap-3 p-2 rounded-md hover:bg-accent border-l-2 border-r-2 border-blue-500 cursor-pointer transition-colors"
                                         >
-                                            <div className="flex items-start justify-between gap-2 mb-2">
-                                                <div className="flex-1">
-                                                    <div className="font-semibold">
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="font-medium text-sm truncate">
                                                         {followup.company_name}
-                                                    </div>
-                                                    {followup.campaign_name && (
-                                                        <Badge variant="outline" className="mt-1 text-xs">
-                                                            {followup.campaign_name}
-                                                        </Badge>
-                                                    )}
-                                                </div>
-                                                <Badge variant="secondary" className="text-xs">
-                                                    {getRelativeTime(followup.next_followup_datetime)}
-                                                </Badge>
-                                            </div>
-                                            <div className="space-y-1 text-sm">
-                                                <div className="flex items-center gap-2 text-muted-foreground">
-                                                    <CalendarClock className="h-3 w-3" />
-                                                    <span>
-                                                        {format(new Date(followup.next_followup_datetime), 'MMM dd, yyyy h:mm a')}
+                                                    </span>
+                                                    <span className="text-xs text-muted-foreground">•</span>
+                                                    <span className="text-xs text-muted-foreground truncate">
+                                                        {followup.contact_name}
                                                     </span>
                                                 </div>
-                                                <div className="text-xs">
-                                                    <span className="font-medium">Contact:</span> {followup.contact_name}
+                                                <div className="flex items-center gap-1 text-xs text-muted-foreground mt-0.5">
+                                                    <CalendarClock className="h-3 w-3" />
+                                                    <span>
+                                                        {formatInTimezone(followup.next_followup_datetime, 'MMM dd, h:mm a')}
+                                                    </span>
                                                 </div>
-                                                <div className="text-xs">
-                                                    <span className="font-medium">Agent:</span> {followup.agent_name}
-                                                </div>
-                                                {followup.interest_level && (
-                                                    <div className="text-xs">
-                                                        <span className="font-medium">Interest:</span> {followup.interest_level}
-                                                    </div>
-                                                )}
                                             </div>
-                                            {followup.lead_id && (
-                                                <div className="mt-3">
-                                                    <Link
-                                                        href={`/sales/leads/${followup.lead_id}`}
-                                                        className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-8 px-3"
-                                                    >
-                                                        View Lead
-                                                    </Link>
-                                                </div>
-                                            )}
-                                        </div>
+                                            <Badge variant="secondary" className="text-xs whitespace-nowrap">
+                                                {getRelativeTime(followup.next_followup_datetime)}
+                                            </Badge>
+                                        </Link>
                                     ))}
                                 </div>
                             )}

@@ -1,13 +1,13 @@
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { MultiSelect } from '@/components/ui/multi-select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import { Head, router, usePage } from '@inertiajs/react';
 import { useState, useRef, useEffect } from 'react';
-import { FileDown, Loader2 } from 'lucide-react';
+import { FileDown, Loader2, X } from 'lucide-react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -60,11 +60,11 @@ interface PageProps extends Record<string, unknown> {
     companies: Company[];
     agents: Agent[];
     filters: {
-        company_id?: number;
-        activity_type?: string;
-        agent_id?: number;
-        conversation_method?: string;
-        conversation_connected?: string;
+        company_id?: number | number[];
+        activity_type?: string | string[];
+        agent_id?: number | number[];
+        conversation_method?: string | string[];
+        conversation_connected?: string | string[];
         from_date?: string;
         to_date?: string;
     };
@@ -82,12 +82,19 @@ export default function ActivityLogsIndex() {
     const loadingRef = useRef(false);
     const isInitialLoad = useRef(true);
 
+    // Helper function to parse filter values
+    const parseFilterArray = (value: string | string[] | number | number[] | undefined): string[] => {
+        if (!value) return [];
+        if (Array.isArray(value)) return value.map(v => v.toString());
+        return [value.toString()];
+    };
+
     const [localFilters, setLocalFilters] = useState({
-        company_id: filters.company_id?.toString() || 'all',
-        activity_type: filters.activity_type || 'all',
-        agent_id: filters.agent_id?.toString() || 'all',
-        conversation_method: filters.conversation_method || 'all',
-        conversation_connected: filters.conversation_connected || 'all',
+        company_id: parseFilterArray(filters.company_id),
+        activity_type: parseFilterArray(filters.activity_type),
+        agent_id: parseFilterArray(filters.agent_id),
+        conversation_method: parseFilterArray(filters.conversation_method),
+        conversation_connected: parseFilterArray(filters.conversation_connected),
         from_date: filters.from_date || '',
         to_date: filters.to_date || '',
     });
@@ -103,27 +110,31 @@ export default function ActivityLogsIndex() {
         }
     }, [initialActivities.data, initialActivities.current_page]);
 
-    const handleFilterChange = (key: string, value: string) => {
+    const handleFilterChange = (key: string, value: string | string[]) => {
         const newFilters = { ...localFilters, [key]: value };
         setLocalFilters(newFilters);
-        applyFilters(newFilters);
+        
+        setTimeout(() => {
+            applyFilters(newFilters);
+        }, 0);
     };
 
     const applyFilters = (newFilters = localFilters) => {
-        const params: Record<string, string> = {};
+        const params: any = {};
         
-        if (newFilters.company_id && newFilters.company_id !== 'all') params.company_id = newFilters.company_id;
-        if (newFilters.activity_type && newFilters.activity_type !== 'all') params.activity_type = newFilters.activity_type;
-        if (newFilters.agent_id && newFilters.agent_id !== 'all') params.agent_id = newFilters.agent_id;
-        if (newFilters.conversation_method && newFilters.conversation_method !== 'all') params.conversation_method = newFilters.conversation_method;
-        if (newFilters.conversation_connected && newFilters.conversation_connected !== 'all') params.conversation_connected = newFilters.conversation_connected;
+        if (Array.isArray(newFilters.company_id) && newFilters.company_id.length > 0) params.company_id = newFilters.company_id;
+        if (Array.isArray(newFilters.activity_type) && newFilters.activity_type.length > 0) params.activity_type = newFilters.activity_type;
+        if (Array.isArray(newFilters.agent_id) && newFilters.agent_id.length > 0) params.agent_id = newFilters.agent_id;
+        if (Array.isArray(newFilters.conversation_method) && newFilters.conversation_method.length > 0) params.conversation_method = newFilters.conversation_method;
+        if (Array.isArray(newFilters.conversation_connected) && newFilters.conversation_connected.length > 0) params.conversation_connected = newFilters.conversation_connected;
         if (newFilters.from_date) params.from_date = newFilters.from_date;
         if (newFilters.to_date) params.to_date = newFilters.to_date;
 
         setIsLoading(true);
         router.get('/sales/activity-logs', params, {
-            preserveState: false,
-            preserveScroll: false,
+            preserveState: true,
+            preserveScroll: true,
+            only: ['activities'],
             onFinish: () => setIsLoading(false),
         });
     };
@@ -134,15 +145,15 @@ export default function ActivityLogsIndex() {
         loadingRef.current = true;
         setIsLoadingMore(true);
 
-        const params: Record<string, string> = {
+        const params: any = {
             page: (currentPage + 1).toString(),
         };
         
-        if (localFilters.company_id && localFilters.company_id !== 'all') params.company_id = localFilters.company_id;
-        if (localFilters.activity_type && localFilters.activity_type !== 'all') params.activity_type = localFilters.activity_type;
-        if (localFilters.agent_id && localFilters.agent_id !== 'all') params.agent_id = localFilters.agent_id;
-        if (localFilters.conversation_method && localFilters.conversation_method !== 'all') params.conversation_method = localFilters.conversation_method;
-        if (localFilters.conversation_connected && localFilters.conversation_connected !== 'all') params.conversation_connected = localFilters.conversation_connected;
+        if (localFilters.company_id.length > 0) params.company_id = localFilters.company_id;
+        if (localFilters.activity_type.length > 0) params.activity_type = localFilters.activity_type;
+        if (localFilters.agent_id.length > 0) params.agent_id = localFilters.agent_id;
+        if (localFilters.conversation_method.length > 0) params.conversation_method = localFilters.conversation_method;
+        if (localFilters.conversation_connected.length > 0) params.conversation_connected = localFilters.conversation_connected;
         if (localFilters.from_date) params.from_date = localFilters.from_date;
         if (localFilters.to_date) params.to_date = localFilters.to_date;
 
@@ -201,30 +212,33 @@ export default function ActivityLogsIndex() {
     const clearFilters = () => {
         const today = new Date().toISOString().split('T')[0];
         const resetFilters = {
-            company_id: 'all',
-            activity_type: 'all',
-            agent_id: 'all',
-            conversation_method: 'all',
-            conversation_connected: 'all',
+            company_id: [],
+            activity_type: [],
+            agent_id: [],
+            conversation_method: [],
+            conversation_connected: [],
             from_date: today,
             to_date: today,
         };
         setLocalFilters(resetFilters);
         setIsLoading(true);
-        router.get('/activity-logs', { from_date: today, to_date: today }, {
-            preserveState: false,
-            preserveScroll: false,
+        router.get('/sales/activity-logs', { from_date: today, to_date: today }, {
+            preserveState: true,
+            preserveScroll: true,
+            only: ['activities'],
             onFinish: () => setIsLoading(false),
         });
     };
 
+    const hasActiveFilters = localFilters.company_id.length > 0 || localFilters.activity_type.length > 0 || localFilters.agent_id.length > 0 || localFilters.conversation_method.length > 0 || localFilters.conversation_connected.length > 0;
+
     const handleExport = () => {
         const params = new URLSearchParams();
-        if (localFilters.company_id && localFilters.company_id !== 'all') params.append('company_id', localFilters.company_id);
-        if (localFilters.activity_type && localFilters.activity_type !== 'all') params.append('activity_type', localFilters.activity_type);
-        if (localFilters.agent_id && localFilters.agent_id !== 'all') params.append('agent_id', localFilters.agent_id);
-        if (localFilters.conversation_method && localFilters.conversation_method !== 'all') params.append('conversation_method', localFilters.conversation_method);
-        if (localFilters.conversation_connected && localFilters.conversation_connected !== 'all') params.append('conversation_connected', localFilters.conversation_connected);
+        localFilters.company_id.forEach(id => params.append('company_id[]', id));
+        localFilters.activity_type.forEach(type => params.append('activity_type[]', type));
+        localFilters.agent_id.forEach(id => params.append('agent_id[]', id));
+        localFilters.conversation_method.forEach(method => params.append('conversation_method[]', method));
+        localFilters.conversation_connected.forEach(status => params.append('conversation_connected[]', status));
         if (localFilters.from_date) params.append('from_date', localFilters.from_date);
         if (localFilters.to_date) params.append('to_date', localFilters.to_date);
 
@@ -236,7 +250,12 @@ export default function ActivityLogsIndex() {
             <Head title="Activity Logs" />
             <div className="flex h-screen flex-col gap-4 rounded-xl p-4 overflow-hidden">
                 <div className="flex items-center justify-between mb-2">
-                    <h1 className="text-2xl font-bold">Activity Logs</h1>
+                    <div>
+                        <h1 className="text-2xl font-bold">Activity Logs</h1>
+                        <p className="text-sm text-muted-foreground mt-1">
+                            Total: {totalCount} (Loaded: {activities.length})
+                        </p>
+                    </div>
                     <Button onClick={handleExport}>
                         <FileDown className="mr-2 h-4 w-4" />
                         Export to Excel
@@ -244,120 +263,131 @@ export default function ActivityLogsIndex() {
                 </div>
 
                 {/* Filters */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 rounded-lg border bg-card p-4">
-                    <div className="space-y-2">
-                        <Label htmlFor="company-filter">Company Name</Label>
-                        <Select value={localFilters.company_id} onValueChange={(val) => handleFilterChange('company_id', val)}>
-                            <SelectTrigger id="company-filter">
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">All Companies</SelectItem>
-                                {companies.map((company) => (
-                                    <SelectItem key={company.id} value={company.id.toString()}>
-                                        {company.name}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
+                <div className="bg-white rounded-lg border p-4">
+                    {/* First Row */}
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+                        <div>
+                            <Label htmlFor="company-filter" className="mb-2 block">Company</Label>
+                            <MultiSelect
+                                options={companies.map(company => ({
+                                    label: company.name,
+                                    value: company.id.toString()
+                                }))}
+                                selected={localFilters.company_id}
+                                onChange={(values) => handleFilterChange('company_id', values)}
+                                placeholder="All companies"
+                            />
+                        </div>
+
+                        <div>
+                            <Label htmlFor="user-filter" className="mb-2 block">Agent</Label>
+                            <MultiSelect
+                                options={agents.map(agent => ({
+                                    label: agent.name,
+                                    value: agent.id.toString()
+                                }))}
+                                selected={localFilters.agent_id}
+                                onChange={(values) => handleFilterChange('agent_id', values)}
+                                placeholder="All agents"
+                            />
+                        </div>
+
+                        <div>
+                            <Label htmlFor="conversation-method-filter" className="mb-2 block">Conversation Method</Label>
+                            <MultiSelect
+                                options={[
+                                    { label: 'Call', value: 'Call' },
+                                    { label: 'WhatsApp', value: 'WhatsApp' },
+                                    { label: 'LinkedIn', value: 'LinkedIn' },
+                                    { label: 'Email', value: 'Email' },
+                                    { label: 'Teams Chat', value: 'Teams Chat' },
+                                    { label: 'Other', value: 'Other' }
+                                ]}
+                                selected={localFilters.conversation_method}
+                                onChange={(values) => handleFilterChange('conversation_method', values)}
+                                placeholder="All methods"
+                            />
+                        </div>
+
+                        <div>
+                            <Label htmlFor="connection-status-filter" className="mb-2 block">Connection Status</Label>
+                            <MultiSelect
+                                options={[
+                                    { label: 'Connected', value: 'Yes' },
+                                    { label: 'Not Connected', value: 'No' }
+                                ]}
+                                selected={localFilters.conversation_connected}
+                                onChange={(values) => handleFilterChange('conversation_connected', values)}
+                                placeholder="All statuses"
+                            />
+                        </div>
                     </div>
 
-                    <div className="space-y-2">
-                        <Label htmlFor="activity-type-filter">Activity Type</Label>
-                        <Select value={localFilters.activity_type} onValueChange={(val) => handleFilterChange('activity_type', val)}>
-                            <SelectTrigger id="activity-type-filter">
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">All Types</SelectItem>
-                                <SelectItem value="Call">Call</SelectItem>
-                                <SelectItem value="Email">Email</SelectItem>
-                                <SelectItem value="Meeting">Meeting</SelectItem>
-                                <SelectItem value="Follow-up">Follow-up</SelectItem>
-                                <SelectItem value="Demo">Demo</SelectItem>
-                                <SelectItem value="Other">Other</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
+                    {/* Second Row */}
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <div>
+                            <Label htmlFor="activity-type-filter" className="mb-2 block">Activity Type</Label>
+                            <MultiSelect
+                                options={[
+                                    { label: 'Update', value: 'update' },
+                                    { label: 'Lead Created', value: 'lead_created' },
+                                    { label: 'Lead Removed', value: 'lead_removed' },
+                                    { label: 'Contact Added', value: 'contact_added' },
+                                    { label: 'Contact Updated', value: 'contact_updated' },
+                                    { label: 'Contact Created', value: 'contact_created' },
+                                    { label: 'Contact PIC Updated', value: 'contact_pic_updated' },
+                                    { label: 'Contact Invalidated', value: 'contact_invalidated' },
+                                    { label: 'Stage Changed', value: 'stage_changed' },
+                                    { label: 'Agent Change', value: 'agent_change' },
+                                    { label: 'Proposal Updated', value: 'proposal_updated' },
+                                    { label: 'Partner Updated', value: 'partner_updated' },
+                                    { label: 'Partner Created', value: 'partner_created' },
+                                    { label: 'Partner Deleted', value: 'partner_deleted' },
+                                    { label: 'Project Created', value: 'project_created' },
+                                    { label: 'Contract Created', value: 'contract_created' },
+                                    { label: 'Files Uploaded', value: 'files_uploaded' },
+                                    { label: 'Company Created', value: 'company_created' }
+                                ]}
+                                selected={localFilters.activity_type}
+                                onChange={(values) => handleFilterChange('activity_type', values)}
+                                placeholder="All types"
+                            />
+                        </div>
 
-                    <div className="space-y-2">
-                        <Label htmlFor="user-filter">User</Label>
-                        <Select value={localFilters.agent_id} onValueChange={(val) => handleFilterChange('agent_id', val)}>
-                            <SelectTrigger id="user-filter">
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">All Users</SelectItem>
-                                {agents.map((agent) => (
-                                    <SelectItem key={agent.id} value={agent.id.toString()}>
-                                        {agent.name}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    </div>
+                        <div>
+                            <Label htmlFor="from-date" className="mb-2 block">From Date</Label>
+                            <Input
+                                id="from-date"
+                                type="date"
+                                value={localFilters.from_date}
+                                onChange={(e) => handleFilterChange('from_date', e.target.value)}
+                                className="h-10"
+                            />
+                        </div>
 
-                    <div className="space-y-2">
-                        <Label htmlFor="conversation-method-filter">Conversation Method</Label>
-                        <Select value={localFilters.conversation_method} onValueChange={(val) => handleFilterChange('conversation_method', val)}>
-                            <SelectTrigger id="conversation-method-filter">
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">All Methods</SelectItem>
-                                <SelectItem value="Call">Call</SelectItem>
-                                <SelectItem value="WhatsApp">WhatsApp</SelectItem>
-                                <SelectItem value="LinkedIn">LinkedIn</SelectItem>
-                                <SelectItem value="Email">Email</SelectItem>
-                                <SelectItem value="Teams Chat">Teams Chat</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
+                        <div>
+                            <Label htmlFor="to-date" className="mb-2 block">To Date</Label>
+                            <Input
+                                id="to-date"
+                                type="date"
+                                value={localFilters.to_date}
+                                onChange={(e) => handleFilterChange('to_date', e.target.value)}
+                                className="h-10"
+                            />
+                        </div>
 
-                    <div className="space-y-2">
-                        <Label htmlFor="connection-status-filter">Connection Status</Label>
-                        <Select value={localFilters.conversation_connected} onValueChange={(val) => handleFilterChange('conversation_connected', val)}>
-                            <SelectTrigger id="connection-status-filter">
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">All Statuses</SelectItem>
-                                <SelectItem value="Yes">Connected</SelectItem>
-                                <SelectItem value="No">Not Connected</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
-
-                    <div className="space-y-2">
-                        <Label htmlFor="from-date">From Date</Label>
-                        <Input
-                            id="from-date"
-                            type="date"
-                            value={localFilters.from_date}
-                            onChange={(e) => handleFilterChange('from_date', e.target.value)}
-                        />
-                    </div>
-
-                    <div className="space-y-2">
-                        <Label htmlFor="to-date">To Date</Label>
-                        <Input
-                            id="to-date"
-                            type="date"
-                            value={localFilters.to_date}
-                            onChange={(e) => handleFilterChange('to_date', e.target.value)}
-                        />
-                    </div>
-
-                    <div className="flex items-end">
-                        <Button variant="outline" onClick={clearFilters} className="w-full">
-                            Clear Filters
-                        </Button>
-                    </div>
-                </div>
-
-                <div className="flex items-center justify-between text-sm text-muted-foreground">
-                    <div>
-                        <strong>Total:</strong> {totalCount} (Loaded: {activities.length})
+                        <div className="flex items-end">
+                            <Button 
+                                variant="outline" 
+                                onClick={clearFilters} 
+                                disabled={!hasActiveFilters}
+                                className="w-full h-10 text-red-600 border-red-600 hover:text-red-700 hover:bg-red-50 hover:border-red-700 disabled:text-red-300 disabled:border-red-300"
+                                title="Clear all filters"
+                            >
+                                <X className="h-4 w-4 mr-2" />
+                                Clear
+                            </Button>
+                        </div>
                     </div>
                 </div>
 

@@ -32,29 +32,34 @@ class ActivityLogsController extends Controller
         $query->whereDate('created_at', '>=', $fromDate)
               ->whereDate('created_at', '<=', $toDate);
 
-        // Company filter
+        // Company filter (supports single value or array)
         if ($request->filled('company_id')) {
-            $query->where('company_id', $request->company_id);
+            $companyIds = is_array($request->company_id) ? $request->company_id : [$request->company_id];
+            $query->whereIn('company_id', $companyIds);
         }
 
-        // Activity Type filter
+        // Activity Type filter (supports single value or array)
         if ($request->filled('activity_type')) {
-            $query->where('activity_type', $request->activity_type);
+            $activityTypes = is_array($request->activity_type) ? $request->activity_type : [$request->activity_type];
+            $query->whereIn('activity_type', $activityTypes);
         }
 
-        // Agent/User filter - only apply for admins
+        // Agent/User filter - only apply for admins (supports single value or array)
         if ($request->filled('agent_id') && $user->isAdmin()) {
-            $query->where('agent_id', $request->agent_id);
+            $agentIds = is_array($request->agent_id) ? $request->agent_id : [$request->agent_id];
+            $query->whereIn('agent_id', $agentIds);
         }
 
-        // Conversation Method filter
+        // Conversation Method filter (supports single value or array)
         if ($request->filled('conversation_method')) {
-            $query->where('conversation_method', $request->conversation_method);
+            $methods = is_array($request->conversation_method) ? $request->conversation_method : [$request->conversation_method];
+            $query->whereIn('conversation_method', $methods);
         }
 
-        // Connection Status filter
+        // Connection Status filter (supports single value or array)
         if ($request->filled('conversation_connected')) {
-            $query->where('conversation_connected', $request->conversation_connected);
+            $statuses = is_array($request->conversation_connected) ? $request->conversation_connected : [$request->conversation_connected];
+            $query->whereIn('conversation_connected', $statuses);
         }
 
         $query->orderBy('created_at', 'desc');
@@ -103,25 +108,34 @@ class ActivityLogsController extends Controller
         $query->whereDate('created_at', '>=', $fromDate)
               ->whereDate('created_at', '<=', $toDate);
 
+        // Company filter (supports single value or array)
         if ($request->filled('company_id')) {
-            $query->where('company_id', $request->company_id);
+            $companyIds = is_array($request->company_id) ? $request->company_id : [$request->company_id];
+            $query->whereIn('company_id', $companyIds);
         }
 
+        // Activity Type filter (supports single value or array)
         if ($request->filled('activity_type')) {
-            $query->where('activity_type', $request->activity_type);
+            $activityTypes = is_array($request->activity_type) ? $request->activity_type : [$request->activity_type];
+            $query->whereIn('activity_type', $activityTypes);
         }
 
-        // Agent/User filter - only apply for admins
+        // Agent/User filter - only apply for admins (supports single value or array)
         if ($request->filled('agent_id') && $user->isAdmin()) {
-            $query->where('agent_id', $request->agent_id);
+            $agentIds = is_array($request->agent_id) ? $request->agent_id : [$request->agent_id];
+            $query->whereIn('agent_id', $agentIds);
         }
 
+        // Conversation Method filter (supports single value or array)
         if ($request->filled('conversation_method')) {
-            $query->where('conversation_method', $request->conversation_method);
+            $methods = is_array($request->conversation_method) ? $request->conversation_method : [$request->conversation_method];
+            $query->whereIn('conversation_method', $methods);
         }
 
+        // Connection Status filter (supports single value or array)
         if ($request->filled('conversation_connected')) {
-            $query->where('conversation_connected', $request->conversation_connected);
+            $statuses = is_array($request->conversation_connected) ? $request->conversation_connected : [$request->conversation_connected];
+            $query->whereIn('conversation_connected', $statuses);
         }
 
         $query->orderBy('created_at', 'desc');

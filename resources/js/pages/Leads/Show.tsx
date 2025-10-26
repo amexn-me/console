@@ -2130,7 +2130,9 @@ export default function LeadsShow() {
                                 </div>
 
                                 <div>
-                                    <Label htmlFor="conversation_connected">Conversation Connected?</Label>
+                                    <Label htmlFor="conversation_connected">
+                                        Conversation Connected? <span className="text-red-500">*</span>
+                                    </Label>
                                     <Select
                                         value={updateForm.data.conversation_connected}
                                         onValueChange={(value) => updateForm.setData('conversation_connected', value)}
@@ -2143,6 +2145,9 @@ export default function LeadsShow() {
                                             <SelectItem value="No">No</SelectItem>
                                         </SelectContent>
                                     </Select>
+                                    {updateForm.errors.conversation_connected && (
+                                        <p className="text-sm text-red-500 mt-1">{updateForm.errors.conversation_connected}</p>
+                                    )}
                                 </div>
 
                                 <div>

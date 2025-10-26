@@ -27,7 +27,8 @@ class PartnersController extends Controller
         }
 
         if ($request->filled('contract_status')) {
-            $partnersQuery->where('contract_status', $request->contract_status);
+            $contractStatuses = is_array($request->contract_status) ? $request->contract_status : [$request->contract_status];
+            $partnersQuery->whereIn('contract_status', $contractStatuses);
         }
 
         // Paginate partners with 50 items per page
@@ -41,13 +42,15 @@ class PartnersController extends Controller
             ->with(['partner', 'agent'])
             ->whereNotNull('partner_id');
 
-        // Apply filters for partner companies
+        // Apply filters for partner companies (supports single value or array)
         if ($request->filled('partner_id')) {
-            $companiesQuery->where('partner_id', $request->partner_id);
+            $partnerIds = is_array($request->partner_id) ? $request->partner_id : [$request->partner_id];
+            $companiesQuery->whereIn('partner_id', $partnerIds);
         }
 
         if ($request->filled('stage')) {
-            $companiesQuery->where('stage', $request->stage);
+            $stages = is_array($request->stage) ? $request->stage : [$request->stage];
+            $companiesQuery->whereIn('stage', $stages);
         }
 
         // Paginate with 50 items per page for lazy loading
@@ -153,13 +156,15 @@ class PartnersController extends Controller
             ->with(['partner', 'agent'])
             ->whereNotNull('partner_id');
 
-        // Apply same filters
+        // Apply same filters (supports single value or array)
         if ($request->filled('partner_id')) {
-            $query->where('partner_id', $request->partner_id);
+            $partnerIds = is_array($request->partner_id) ? $request->partner_id : [$request->partner_id];
+            $query->whereIn('partner_id', $partnerIds);
         }
 
         if ($request->filled('stage')) {
-            $query->where('stage', $request->stage);
+            $stages = is_array($request->stage) ? $request->stage : [$request->stage];
+            $query->whereIn('stage', $stages);
         }
 
         return Excel::download(

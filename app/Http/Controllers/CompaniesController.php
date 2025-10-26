@@ -23,13 +23,15 @@ class CompaniesController extends Controller
             $query->where('agent_id', $user->id);
         }
 
-        // Apply filters
+        // Apply filters (supports single value or array)
         if ($request->filled('stage')) {
-            $query->where('stage', $request->stage);
+            $stages = is_array($request->stage) ? $request->stage : [$request->stage];
+            $query->whereIn('stage', $stages);
         }
 
         if ($request->filled('agent_id')) {
-            $query->where('agent_id', $request->agent_id);
+            $agentIds = is_array($request->agent_id) ? $request->agent_id : [$request->agent_id];
+            $query->whereIn('agent_id', $agentIds);
         }
 
         if ($request->filled('search')) {
@@ -37,21 +39,28 @@ class CompaniesController extends Controller
         }
 
         if ($request->filled('pic_status')) {
-            // Filter based on PIC status
-            if ($request->pic_status === 'identified') {
-                $query->whereHas('contacts', function ($q) {
-                    $q->where('is_pic', true);
-                });
-            } elseif ($request->pic_status === 'not_identified') {
-                $query->whereDoesntHave('contacts', function ($q) {
-                    $q->where('is_pic', true);
-                });
-            }
+            $picStatuses = is_array($request->pic_status) ? $request->pic_status : [$request->pic_status];
+            
+            // Handle multiple PIC status filters
+            $query->where(function ($q) use ($picStatuses) {
+                foreach ($picStatuses as $status) {
+                    if ($status === 'identified') {
+                        $q->orWhereHas('contacts', function ($subQ) {
+                            $subQ->where('is_pic', true);
+                        });
+                    } elseif ($status === 'not_identified') {
+                        $q->orWhereDoesntHave('contacts', function ($subQ) {
+                            $subQ->where('is_pic', true);
+                        });
+                    }
+                }
+            });
         }
 
         if ($request->filled('interest_level')) {
-            $query->whereHas('contacts', function ($q) use ($request) {
-                $q->where('interest_level', $request->interest_level);
+            $interestLevels = is_array($request->interest_level) ? $request->interest_level : [$request->interest_level];
+            $query->whereHas('contacts', function ($q) use ($interestLevels) {
+                $q->whereIn('interest_level', $interestLevels);
             });
         }
 
@@ -187,13 +196,15 @@ class CompaniesController extends Controller
             $query->where('agent_id', $user->id);
         }
 
-        // Apply same filters as index
+        // Apply same filters as index (supports single value or array)
         if ($request->filled('stage')) {
-            $query->where('stage', $request->stage);
+            $stages = is_array($request->stage) ? $request->stage : [$request->stage];
+            $query->whereIn('stage', $stages);
         }
 
         if ($request->filled('agent_id')) {
-            $query->where('agent_id', $request->agent_id);
+            $agentIds = is_array($request->agent_id) ? $request->agent_id : [$request->agent_id];
+            $query->whereIn('agent_id', $agentIds);
         }
 
         if ($request->filled('search')) {
@@ -201,20 +212,28 @@ class CompaniesController extends Controller
         }
 
         if ($request->filled('pic_status')) {
-            if ($request->pic_status === 'identified') {
-                $query->whereHas('contacts', function ($q) {
-                    $q->where('is_pic', true);
-                });
-            } elseif ($request->pic_status === 'not_identified') {
-                $query->whereDoesntHave('contacts', function ($q) {
-                    $q->where('is_pic', true);
-                });
-            }
+            $picStatuses = is_array($request->pic_status) ? $request->pic_status : [$request->pic_status];
+            
+            // Handle multiple PIC status filters
+            $query->where(function ($q) use ($picStatuses) {
+                foreach ($picStatuses as $status) {
+                    if ($status === 'identified') {
+                        $q->orWhereHas('contacts', function ($subQ) {
+                            $subQ->where('is_pic', true);
+                        });
+                    } elseif ($status === 'not_identified') {
+                        $q->orWhereDoesntHave('contacts', function ($subQ) {
+                            $subQ->where('is_pic', true);
+                        });
+                    }
+                }
+            });
         }
 
         if ($request->filled('interest_level')) {
-            $query->whereHas('contacts', function ($q) use ($request) {
-                $q->where('interest_level', $request->interest_level);
+            $interestLevels = is_array($request->interest_level) ? $request->interest_level : [$request->interest_level];
+            $query->whereHas('contacts', function ($q) use ($interestLevels) {
+                $q->whereIn('interest_level', $interestLevels);
             });
         }
 
