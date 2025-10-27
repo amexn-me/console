@@ -1976,6 +1976,7 @@ export default function CampaignsShow() {
                                     <div className="space-y-1 text-sm">
                                         <p className="font-semibold text-blue-900">Import Behavior:</p>
                                         <ul className="text-blue-700 space-y-1 list-disc list-inside">
+                                            <li>New companies will be assigned to the selected agent</li>
                                             <li>Companies with existing names will be reused</li>
                                             <li>Duplicate contacts (same LinkedIn URL) will be skipped</li>
                                             <li>Companies already in this campaign will be skipped</li>

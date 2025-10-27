@@ -1182,6 +1182,7 @@ class CampaignsController extends Controller
                             'id' => $maxCompanyId + 1,
                             'name' => $companyName,
                             'stage' => 'PIC Not Identified', // Default stage for new companies
+                            'agent_id' => $validated['agent_id'] ?? null,
                         ]);
                         $companiesCreated++;
                     } else {
