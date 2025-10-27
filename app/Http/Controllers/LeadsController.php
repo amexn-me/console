@@ -841,6 +841,8 @@ class LeadsController extends Controller
             'phone2' => 'nullable|string|max:50',
             'linkedin_url' => 'nullable|url|max:500',
             'interest_level' => 'required|in:Cold,Warm,Hot',
+            'do_not_contact' => 'nullable|boolean',
+            'is_invalid' => 'nullable|boolean',
         ]);
 
         $oldName = $contact->name;
@@ -916,7 +918,7 @@ class LeadsController extends Controller
 
         $contactName = $contact->name;
         $contactId = $contact->id;
-        $contact->update(['do_not_contact' => true]);
+        $contact->update(['is_invalid' => true]);
 
         // Log activity
         $maxId = Activity::max('id') ?? 0;
@@ -927,11 +929,45 @@ class LeadsController extends Controller
             'contact_id' => $contactId,
             'agent_id' => auth()->id(),
             'activity_type' => 'contact_invalidated',
-            'notes' => "Marked contact as do not contact: {$contactName}",
+            'notes' => "Marked contact as invalid: {$contactName}",
             'created_at' => now()->utc(),
         ]);
 
-        return redirect()->back()->with('success', 'Contact marked as do not contact');
+        return redirect()->back()->with('success', 'Contact marked as invalid');
+    }
+
+    public function markDoNotContact(Lead $lead, Contact $contact)
+    {
+        $user = auth()->user();
+        
+        // Check access
+        if (!$user->isAdmin() && $lead->agent_id !== $user->id) {
+            abort(403, 'Unauthorized action. You can only mark contacts as DNC from leads where you are the agent.');
+        }
+
+        // Verify contact belongs to lead's company
+        if ($contact->company_id !== $lead->company_id) {
+            abort(404);
+        }
+
+        $contactName = $contact->name;
+        $contactId = $contact->id;
+        $contact->update(['do_not_contact' => true]);
+
+        // Log activity
+        $maxId = Activity::max('id') ?? 0;
+        Activity::create([
+            'id' => $maxId + 1,
+            'company_id' => $lead->company_id,
+            'lead_id' => $lead->id,
+            'contact_id' => $contactId,
+            'agent_id' => auth()->id(),
+            'activity_type' => 'contact_dnc',
+            'notes' => "Marked contact as Do Not Contact: {$contactName}",
+            'created_at' => now()->utc(),
+        ]);
+
+        return redirect()->back()->with('success', 'Contact marked as Do Not Contact');
     }
 
     public function changeStage(Request $request, Lead $lead)

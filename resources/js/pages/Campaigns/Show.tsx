@@ -12,8 +12,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import { Head, router, useForm, usePage } from '@inertiajs/react';
-import { ArrowLeft, Plus, Trash2, Pencil, TrendingUp, Users as UsersIcon, Target, Search, X, Download, BarChart3, List, ChevronLeft, ChevronRight, Award, Activity as ActivityIcon, AlertTriangle, Clock, FileSpreadsheet, Loader2, FileText } from 'lucide-react';
-import { useState } from 'react';
+import { ArrowLeft, Plus, Trash2, Pencil, TrendingUp, Users as UsersIcon, Target, Search, X, Download, BarChart3, List, ChevronLeft, ChevronRight, Award, Activity as ActivityIcon, AlertTriangle, Clock, FileSpreadsheet, Loader2, FileText, Upload } from 'lucide-react';
+import { useState, useRef } from 'react';
 import { usePermissions } from '@/hooks/use-permissions';
 import { SalesFunnelChart } from '@/components/SalesFunnelChart';
 
@@ -158,6 +158,7 @@ export default function CampaignsShow() {
     const { campaign, leads: initialLeads, analytics: initialAnalytics, companies, users } = usePage<PageProps>().props;
     const permissions = usePermissions();
     const [isAddCompanyDrawerOpen, setIsAddCompanyDrawerOpen] = useState(false);
+    const [isBulkImportDrawerOpen, setIsBulkImportDrawerOpen] = useState(false);
     
     // Get current tab from URL
     const urlParams = new URLSearchParams(window.location.search);
@@ -188,6 +189,16 @@ export default function CampaignsShow() {
     const [bulkAgent, setBulkAgent] = useState<string>('none');
     const [bulkStage, setBulkStage] = useState<string>('PIC Not Identified');
     const [isSubmitting, setIsSubmitting] = useState(false);
+
+    // Bulk import state
+    const [importFile, setImportFile] = useState<File | null>(null);
+    const [importAgent, setImportAgent] = useState<string>('none');
+    const [importStage, setImportStage] = useState<string>('PIC Not Identified');
+    const [isImporting, setIsImporting] = useState(false);
+    const [isPreviewing, setIsPreviewing] = useState(false);
+    const [showPreview, setShowPreview] = useState(false);
+    const [previewData, setPreviewData] = useState<any>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     const { data, setData, post, processing, errors, reset } = useForm({
         company_id: '',
@@ -234,6 +245,117 @@ export default function CampaignsShow() {
                     }
                 },
             });
+        }
+    };
+
+    const handlePreview = async () => {
+        if (!importFile) {
+            alert('Please select a file to preview');
+            return;
+        }
+
+        setIsPreviewing(true);
+
+        const formData = new FormData();
+        formData.append('file', importFile);
+
+        try {
+            const response = await fetch(route('campaigns.bulk-import.preview', campaign.id), {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+                },
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                setPreviewData(data);
+                setShowPreview(true);
+            } else {
+                alert(data.error || 'Failed to preview file');
+            }
+        } catch (error) {
+            alert('Error previewing file. Please try again.');
+            console.error(error);
+        } finally {
+            setIsPreviewing(false);
+        }
+    };
+
+    const handleBulkImport = (e: React.FormEvent) => {
+        e.preventDefault();
+        
+        if (!importFile) {
+            alert('Please select a file to import');
+            return;
+        }
+
+        setIsImporting(true);
+
+        const formData = new FormData();
+        formData.append('file', importFile);
+        formData.append('stage', importStage);
+        if (importAgent !== 'none') {
+            formData.append('agent_id', importAgent);
+        }
+
+        router.post(route('campaigns.bulk-import', campaign.id), formData, {
+            preserveScroll: true,
+            forceFormData: true,
+            onSuccess: (page) => {
+                // Update local state with new data from the response
+                const newAnalytics = page.props.analytics as Analytics;
+                const newLeads = page.props.leads as typeof initialLeads;
+                
+                if (newAnalytics) {
+                    setAnalytics(newAnalytics);
+                }
+                if (newLeads) {
+                    setLeads(newLeads);
+                }
+                
+                setIsBulkImportDrawerOpen(false);
+                setImportFile(null);
+                setImportAgent('none');
+                setImportStage('PIC Not Identified');
+                setShowPreview(false);
+                setPreviewData(null);
+                if (fileInputRef.current) {
+                    fileInputRef.current.value = '';
+                }
+                setIsImporting(false);
+            },
+            onError: () => {
+                setIsImporting(false);
+            },
+        });
+    };
+
+    const handleBackToUpload = () => {
+        setShowPreview(false);
+        setPreviewData(null);
+    };
+
+    const handleDownloadTemplate = () => {
+        window.location.href = route('campaigns.download-template');
+    };
+
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            // Validate file type
+            const allowedTypes = [
+                'application/vnd.ms-excel',
+                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                'text/csv'
+            ];
+            if (!allowedTypes.includes(file.type) && !file.name.match(/\.(xlsx|xls|csv)$/)) {
+                alert('Please select a valid Excel or CSV file');
+                return;
+            }
+            setImportFile(file);
         }
     };
 
@@ -557,10 +679,16 @@ export default function CampaignsShow() {
                                     Export to Excel
                                 </Button>
                         {permissions.isAdmin && (
-                            <Button onClick={() => setIsAddCompanyDrawerOpen(true)}>
-                                <Plus className="mr-2 h-4 w-4" />
-                                Add Companies
-                            </Button>
+                            <>
+                                <Button variant="outline" onClick={() => setIsBulkImportDrawerOpen(true)}>
+                                    <Upload className="mr-2 h-4 w-4" />
+                                    Bulk Import
+                                </Button>
+                                <Button onClick={() => setIsAddCompanyDrawerOpen(true)}>
+                                    <Plus className="mr-2 h-4 w-4" />
+                                    Add Companies
+                                </Button>
+                            </>
                         )}
                             </div>
                     </div>
@@ -1729,6 +1857,309 @@ export default function CampaignsShow() {
                             </div>
                         </div>
                     </SheetFooter>
+                </SheetContent>
+            </Sheet>
+
+            {/* Bulk Import Drawer */}
+            <Sheet open={isBulkImportDrawerOpen} onOpenChange={setIsBulkImportDrawerOpen}>
+                <SheetContent className="w-full max-w-full sm:max-w-md flex flex-col h-full">
+                    <SheetHeader className="flex-shrink-0 px-6">
+                        <SheetTitle className="text-2xl">Bulk Import Leads</SheetTitle>
+                        <SheetDescription>
+                            Import companies and contacts from a CSV/Excel file. The system will create companies, contacts, and add them as leads to this campaign.
+                        </SheetDescription>
+                    </SheetHeader>
+
+                    <form onSubmit={showPreview ? handleBulkImport : (e) => { e.preventDefault(); handlePreview(); }} className="flex-1 flex flex-col overflow-hidden">
+                        <div className="flex-1 overflow-y-auto space-y-6 py-6 px-6">
+                        {!showPreview ? (
+                            <>
+                            {/* Template Download Section */}
+                            <div className="space-y-2">
+                                <Label className="text-base font-semibold">Step 1: Download Template</Label>
+                                <p className="text-sm text-muted-foreground mb-3">
+                                    Download the CSV template to see the required format and example data.
+                                </p>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    onClick={handleDownloadTemplate}
+                                    className="w-full"
+                                >
+                                    <Download className="mr-2 h-4 w-4" />
+                                    Download Template
+                                </Button>
+                            </div>
+
+                            <div className="border-t pt-6 space-y-4">
+                                <Label className="text-base font-semibold">Step 2: Upload Your File</Label>
+                                <p className="text-sm text-muted-foreground mb-3">
+                                    Upload a CSV or Excel file with the following columns:
+                                </p>
+                                <div className="bg-muted p-3 rounded-lg text-xs space-y-1">
+                                    <div><strong>Company Name</strong> (required)</div>
+                                    <div><strong>Contact Name</strong> (required)</div>
+                                    <div>Contact Title</div>
+                                    <div>Contact Email</div>
+                                    <div>Contact Phone</div>
+                                    <div>Contact LinkedIn URL</div>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <Label htmlFor="import-file">Select File</Label>
+                                    <Input
+                                        id="import-file"
+                                        type="file"
+                                        ref={fileInputRef}
+                                        accept=".csv,.xlsx,.xls"
+                                        onChange={handleFileChange}
+                                        disabled={isImporting}
+                                    />
+                                    {importFile && (
+                                        <p className="text-sm text-muted-foreground">
+                                            Selected: {importFile.name}
+                                        </p>
+                                    )}
+                                </div>
+                            </div>
+
+                            <div className="border-t pt-6 space-y-4">
+                                <Label className="text-base font-semibold">Step 3: Configure Import Settings</Label>
+                                
+                                <div className="space-y-2">
+                                    <Label htmlFor="import-stage">Initial Stage</Label>
+                                    <Select value={importStage} onValueChange={setImportStage} disabled={isImporting}>
+                                        <SelectTrigger id="import-stage">
+                                            <SelectValue placeholder="Select stage" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="PIC Not Identified">PIC Not Identified</SelectItem>
+                                            <SelectItem value="PIC Identified">PIC Identified</SelectItem>
+                                            <SelectItem value="Contacted">Contacted</SelectItem>
+                                            <SelectItem value="Demo Requested">Demo Requested</SelectItem>
+                                            <SelectItem value="Demo Completed">Demo Completed</SelectItem>
+                                            <SelectItem value="Questionnaire Sent">Questionnaire Sent</SelectItem>
+                                            <SelectItem value="Questionnaire Replied">Questionnaire Replied</SelectItem>
+                                            <SelectItem value="Proposal">Proposal</SelectItem>
+                                            <SelectItem value="Closed Won">Closed Won</SelectItem>
+                                            <SelectItem value="Closed Lost">Closed Lost</SelectItem>
+                                            <SelectItem value="Disqualified">Disqualified</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                    <p className="text-xs text-muted-foreground">
+                                        All imported leads will be set to this stage
+                                    </p>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <Label htmlFor="import-agent">Assign Agent (Optional)</Label>
+                                    <Select value={importAgent} onValueChange={setImportAgent} disabled={isImporting}>
+                                        <SelectTrigger id="import-agent">
+                                            <SelectValue placeholder="Select agent" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="none">No Agent</SelectItem>
+                                            {users.map((user) => (
+                                                <SelectItem key={user.id} value={user.id.toString()}>
+                                                    {user.name} ({user.email})
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            </div>
+
+                            {/* Info Box */}
+                            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-2">
+                                <div className="flex items-start gap-2">
+                                    <FileText className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                                    <div className="space-y-1 text-sm">
+                                        <p className="font-semibold text-blue-900">Import Behavior:</p>
+                                        <ul className="text-blue-700 space-y-1 list-disc list-inside">
+                                            <li>Companies with existing names will be reused</li>
+                                            <li>Duplicate contacts (same LinkedIn URL) will be skipped</li>
+                                            <li>Companies already in this campaign will be skipped</li>
+                                            <li>Each row will create one contact and link to one company</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                            </>
+                        ) : (
+                            <>
+                            {/* Preview Section */}
+                            <div className="space-y-4">
+                                <div className="flex items-center justify-between">
+                                    <h3 className="text-lg font-semibold">Import Preview</h3>
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={handleBackToUpload}
+                                        disabled={isImporting}
+                                    >
+                                        <ChevronLeft className="mr-2 h-4 w-4" />
+                                        Back to Upload
+                                    </Button>
+                                </div>
+
+                                {/* Statistics Cards */}
+                                {previewData?.stats && (
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <Card>
+                                            <CardContent className="p-3">
+                                                <div className="text-2xl font-bold text-green-600">{previewData.stats.companies_to_add}</div>
+                                                <p className="text-xs text-muted-foreground">Leads to Add</p>
+                                            </CardContent>
+                                        </Card>
+                                        <Card>
+                                            <CardContent className="p-3">
+                                                <div className="text-2xl font-bold text-blue-600">{previewData.stats.total_companies}</div>
+                                                <p className="text-xs text-muted-foreground">Total Companies</p>
+                                            </CardContent>
+                                        </Card>
+                                        <Card>
+                                            <CardContent className="p-3">
+                                                <div className="text-2xl font-bold text-purple-600">{previewData.stats.new_companies}</div>
+                                                <p className="text-xs text-muted-foreground">New Companies</p>
+                                            </CardContent>
+                                        </Card>
+                                        <Card>
+                                            <CardContent className="p-3">
+                                                <div className="text-2xl font-bold text-amber-600">{previewData.stats.companies_to_skip}</div>
+                                                <p className="text-xs text-muted-foreground">To Skip</p>
+                                            </CardContent>
+                                        </Card>
+                                    </div>
+                                )}
+
+                                {/* Errors */}
+                                {previewData?.errors && previewData.errors.length > 0 && (
+                                    <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                                        <div className="flex items-start gap-2">
+                                            <AlertTriangle className="h-4 w-4 text-red-600 flex-shrink-0 mt-0.5" />
+                                            <div className="space-y-1 text-sm">
+                                                <p className="font-semibold text-red-900">Errors Found:</p>
+                                                <ul className="text-red-700 space-y-0.5 text-xs">
+                                                    {previewData.errors.slice(0, 5).map((error: string, idx: number) => (
+                                                        <li key={idx}>{error}</li>
+                                                    ))}
+                                                    {previewData.errors.length > 5 && (
+                                                        <li className="font-semibold">...and {previewData.errors.length - 5} more errors</li>
+                                                    )}
+                                                </ul>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Companies List */}
+                                <div className="space-y-2">
+                                    <h4 className="font-semibold text-sm">Companies & Contacts</h4>
+                                    <div className="border rounded-lg divide-y max-h-96 overflow-y-auto">
+                                        {previewData?.preview && previewData.preview.map((company: any, idx: number) => (
+                                            <div key={idx} className="p-3 hover:bg-gray-50">
+                                                <div className="flex items-start justify-between">
+                                                    <div className="flex-1">
+                                                        <div className="flex items-center gap-2">
+                                                            <h5 className="font-medium text-sm">{company.company_name}</h5>
+                                                            {company.company_exists && (
+                                                                <Badge variant="outline" className="text-xs">Existing</Badge>
+                                                            )}
+                                                            {!company.company_exists && (
+                                                                <Badge variant="default" className="text-xs bg-green-600">New</Badge>
+                                                            )}
+                                                            {company.already_in_campaign && (
+                                                                <Badge variant="secondary" className="text-xs">Skip - In Campaign</Badge>
+                                                            )}
+                                                        </div>
+                                                        <p className="text-xs text-muted-foreground mt-1">
+                                                            {company.new_contacts_count} {company.new_contacts_count === 1 ? 'contact' : 'contacts'} to add
+                                                            {company.contact_count !== company.new_contacts_count && (
+                                                                <span className="text-amber-600"> ({company.contact_count - company.new_contacts_count} duplicate{company.contact_count - company.new_contacts_count !== 1 ? 's' : ''})</span>
+                                                            )}
+                                                        </p>
+                                                        {/* Contact Names */}
+                                                        <div className="mt-2 space-y-1">
+                                                            {company.contacts.slice(0, 3).map((contact: any, cIdx: number) => (
+                                                                <div key={cIdx} className="text-xs text-gray-600 flex items-center gap-2">
+                                                                    <span>• {contact.name}</span>
+                                                                    {contact.title && <span className="text-gray-400">({contact.title})</span>}
+                                                                    {contact.will_skip && <Badge variant="outline" className="text-[10px] px-1 py-0">Duplicate</Badge>}
+                                                                </div>
+                                                            ))}
+                                                            {company.contacts.length > 3 && (
+                                                                <p className="text-xs text-gray-400">...and {company.contacts.length - 3} more</p>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* Import Configuration Summary */}
+                                <div className="bg-gray-50 border rounded-lg p-3 space-y-1 text-sm">
+                                    <p><strong>Initial Stage:</strong> {importStage}</p>
+                                    <p><strong>Assigned Agent:</strong> {importAgent === 'none' ? 'None' : users.find(u => u.id.toString() === importAgent)?.name || 'Unknown'}</p>
+                                </div>
+                            </div>
+                            </>
+                        )}
+                        </div>
+
+                        <SheetFooter className="flex-shrink-0 border-t pt-4 px-6">
+                            <div className="flex gap-3 w-full">
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    onClick={() => {
+                                        setIsBulkImportDrawerOpen(false);
+                                        setImportFile(null);
+                                        setImportAgent('none');
+                                        setImportStage('PIC Not Identified');
+                                        setShowPreview(false);
+                                        setPreviewData(null);
+                                        if (fileInputRef.current) {
+                                            fileInputRef.current.value = '';
+                                        }
+                                    }}
+                                    disabled={isImporting || isPreviewing}
+                                    className="flex-1"
+                                >
+                                    Cancel
+                                </Button>
+                                <Button
+                                    type="submit"
+                                    disabled={(!showPreview && (!importFile || isPreviewing)) || (showPreview && isImporting)}
+                                    className="flex-1"
+                                >
+                                    {isPreviewing ? (
+                                        <>
+                                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                            Generating Preview...
+                                        </>
+                                    ) : isImporting ? (
+                                        <>
+                                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                            Importing...
+                                        </>
+                                    ) : showPreview ? (
+                                        <>
+                                            <Upload className="mr-2 h-4 w-4" />
+                                            Confirm & Import
+                                        </>
+                                    ) : (
+                                        <>
+                                            <FileSpreadsheet className="mr-2 h-4 w-4" />
+                                            Preview Import
+                                        </>
+                                    )}
+                                </Button>
+                            </div>
+                        </SheetFooter>
+                    </form>
                 </SheetContent>
             </Sheet>
         </AppLayout>

@@ -27,6 +27,7 @@ class Contact extends Model
         'is_pic',
         'next_followup_date',
         'do_not_contact',
+        'is_invalid',
         'interest_level',
         'next_followup_datetime',
         'followup_completed',
@@ -36,6 +37,7 @@ class Contact extends Model
     protected $casts = [
         'is_pic' => 'boolean',
         'do_not_contact' => 'boolean',
+        'is_invalid' => 'boolean',
         'followup_completed' => 'boolean',
         'reminder_sent' => 'boolean',
         'next_followup_date' => 'date',

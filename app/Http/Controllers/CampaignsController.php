@@ -974,5 +974,359 @@ class CampaignsController extends Controller
             $fileName
         );
     }
+
+    public function previewImport(Request $request, Campaign $campaign)
+    {
+        // Only admins can preview bulk imports
+        if (!auth()->user()->isAdmin()) {
+            abort(403, 'Unauthorized action. Only admins can preview bulk imports.');
+        }
+
+        $validated = $request->validate([
+            'file' => 'required|file|mimes:xlsx,xls,csv|max:10240', // 10MB max
+        ]);
+
+        try {
+            $file = $request->file('file');
+            $data = Excel::toArray([], $file)[0]; // Get first sheet
+            
+            // Remove header row
+            $headers = array_shift($data);
+            
+            // Validate headers
+            $headersValid = count($headers) >= 2; // At least company name and contact name
+            
+            if (!$headersValid) {
+                return response()->json([
+                    'error' => 'Invalid file format. Please use the provided template.'
+                ], 422);
+            }
+
+            $preview = [];
+            $errors = [];
+            $totalRows = 0;
+            $validRows = 0;
+
+            foreach ($data as $rowIndex => $row) {
+                $rowNumber = $rowIndex + 2; // +2 because we removed header and Excel rows start at 1
+                
+                // Skip empty rows
+                if (empty(array_filter($row))) {
+                    continue;
+                }
+
+                $totalRows++;
+
+                $companyName = trim($row[0] ?? '');
+                $contactName = trim($row[1] ?? '');
+                $contactTitle = trim($row[2] ?? '');
+                $contactEmail = trim($row[3] ?? '');
+                $contactPhone = trim($row[4] ?? '');
+                $contactLinkedIn = trim($row[5] ?? '');
+
+                // Validate required fields
+                if (empty($companyName)) {
+                    $errors[] = "Row {$rowNumber}: Company name is required";
+                    continue;
+                }
+
+                if (empty($contactName)) {
+                    $errors[] = "Row {$rowNumber}: Contact name is required";
+                    continue;
+                }
+
+                $validRows++;
+
+                // Check if company exists
+                $companyExists = Company::where('name', $companyName)->exists();
+                
+                // Check if company already in campaign
+                $companyInCampaign = false;
+                if ($companyExists) {
+                    $company = Company::where('name', $companyName)->first();
+                    $companyInCampaign = Lead::where('campaign_id', $campaign->id)
+                        ->where('company_id', $company->id)
+                        ->exists();
+                }
+
+                // Check if contact with same LinkedIn URL exists
+                $contactExists = false;
+                if ($companyExists && !empty($contactLinkedIn)) {
+                    $company = Company::where('name', $companyName)->first();
+                    $contactExists = Contact::where('company_id', $company->id)
+                        ->where('linkedin_url', $contactLinkedIn)
+                        ->exists();
+                }
+
+                // Add to preview
+                if (!isset($preview[$companyName])) {
+                    $preview[$companyName] = [
+                        'company_name' => $companyName,
+                        'company_exists' => $companyExists,
+                        'already_in_campaign' => $companyInCampaign,
+                        'contacts' => [],
+                    ];
+                }
+
+                $preview[$companyName]['contacts'][] = [
+                    'name' => $contactName,
+                    'title' => $contactTitle,
+                    'email' => $contactEmail,
+                    'phone' => $contactPhone,
+                    'linkedin_url' => $contactLinkedIn,
+                    'will_skip' => $contactExists,
+                ];
+            }
+
+            // Convert to array and add contact counts
+            $previewData = array_values(array_map(function($item) {
+                $item['contact_count'] = count($item['contacts']);
+                $item['new_contacts_count'] = count(array_filter($item['contacts'], fn($c) => !$c['will_skip']));
+                return $item;
+            }, $preview));
+
+            return response()->json([
+                'success' => true,
+                'preview' => $previewData,
+                'stats' => [
+                    'total_rows' => $totalRows,
+                    'valid_rows' => $validRows,
+                    'invalid_rows' => $totalRows - $validRows,
+                    'total_companies' => count($preview),
+                    'total_contacts' => $validRows,
+                    'new_companies' => collect($preview)->filter(fn($p) => !$p['company_exists'])->count(),
+                    'existing_companies' => collect($preview)->filter(fn($p) => $p['company_exists'])->count(),
+                    'companies_to_skip' => collect($preview)->filter(fn($p) => $p['already_in_campaign'])->count(),
+                    'companies_to_add' => collect($preview)->filter(fn($p) => !$p['already_in_campaign'])->count(),
+                ],
+                'errors' => $errors,
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => 'Error processing file: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function bulkImport(Request $request, Campaign $campaign)
+    {
+        // Only admins can perform bulk imports
+        if (!auth()->user()->isAdmin()) {
+            abort(403, 'Unauthorized action. Only admins can perform bulk imports.');
+        }
+
+        $validated = $request->validate([
+            'file' => 'required|file|mimes:xlsx,xls,csv|max:10240', // 10MB max
+            'agent_id' => 'nullable|exists:users,id',
+            'stage' => 'required|string',
+        ]);
+
+        try {
+            $file = $request->file('file');
+            $data = Excel::toArray([], $file)[0]; // Get first sheet
+            
+            // Remove header row
+            $headers = array_shift($data);
+            
+            // Validate headers
+            $expectedHeaders = ['Company Name', 'Contact Name', 'Contact Title', 'Contact Email', 'Contact Phone', 'Contact LinkedIn URL'];
+            $headersValid = count($headers) >= 2; // At least company name and contact name
+            
+            if (!$headersValid) {
+                return back()->with('error', 'Invalid file format. Please use the provided template.');
+            }
+
+            $companiesCreated = 0;
+            $companiesExisted = 0;
+            $contactsCreated = 0;
+            $leadsCreated = 0;
+            $leadsSkipped = 0;
+            $errors = [];
+
+            foreach ($data as $rowIndex => $row) {
+                $rowNumber = $rowIndex + 2; // +2 because we removed header and Excel rows start at 1
+                
+                // Skip empty rows
+                if (empty(array_filter($row))) {
+                    continue;
+                }
+
+                $companyName = trim($row[0] ?? '');
+                $contactName = trim($row[1] ?? '');
+                $contactTitle = trim($row[2] ?? '');
+                $contactEmail = trim($row[3] ?? '');
+                $contactPhone = trim($row[4] ?? '');
+                $contactLinkedIn = trim($row[5] ?? '');
+
+                // Validate required fields
+                if (empty($companyName)) {
+                    $errors[] = "Row {$rowNumber}: Company name is required";
+                    continue;
+                }
+
+                if (empty($contactName)) {
+                    $errors[] = "Row {$rowNumber}: Contact name is required";
+                    continue;
+                }
+
+                try {
+                    // Create or find company by name
+                    $company = Company::where('name', $companyName)->first();
+                    
+                    if (!$company) {
+                        // Generate company ID
+                        $maxCompanyId = Company::max('id') ?? 0;
+                        
+                        $company = Company::create([
+                            'id' => $maxCompanyId + 1,
+                            'name' => $companyName,
+                            'stage' => 'PIC Not Identified', // Default stage for new companies
+                        ]);
+                        $companiesCreated++;
+                    } else {
+                        $companiesExisted++;
+                    }
+
+                    // Create contact
+                    $maxContactId = Contact::max('id') ?? 0;
+                    
+                    // Check if contact with same LinkedIn URL already exists for this company
+                    $existingContact = null;
+                    if (!empty($contactLinkedIn)) {
+                        $existingContact = Contact::where('company_id', $company->id)
+                            ->where('linkedin_url', $contactLinkedIn)
+                            ->first();
+                    }
+
+                    if (!$existingContact) {
+                        Contact::create([
+                            'id' => $maxContactId + 1,
+                            'company_id' => $company->id,
+                            'name' => $contactName,
+                            'title' => $contactTitle ?: null,
+                            'email' => $contactEmail ?: null,
+                            'phone1' => $contactPhone ?: null,
+                            'linkedin_url' => $contactLinkedIn ?: null,
+                            'is_pic' => false,
+                            'do_not_contact' => false,
+                            'is_invalid' => false,
+                            'created_at' => now(),
+                        ]);
+                        $contactsCreated++;
+                    }
+
+                    // Check if lead already exists for this company in this campaign
+                    $existingLead = Lead::where('campaign_id', $campaign->id)
+                        ->where('company_id', $company->id)
+                        ->first();
+
+                    if (!$existingLead) {
+                        // Create lead
+                        $lead = Lead::create([
+                            'campaign_id' => $campaign->id,
+                            'company_id' => $company->id,
+                            'agent_id' => $validated['agent_id'] ?? null,
+                            'stage' => $validated['stage'],
+                        ]);
+
+                        // Log activity
+                        $maxActivityId = Activity::max('id') ?? 0;
+                        Activity::create([
+                            'id' => $maxActivityId + 1,
+                            'agent_id' => auth()->id(),
+                            'company_id' => $company->id,
+                            'lead_id' => $lead->id,
+                            'activity_type' => 'lead_created',
+                            'notes' => "Company added to campaign: {$campaign->name} (Bulk import)",
+                            'created_at' => now()->utc(),
+                        ]);
+
+                        $leadsCreated++;
+                    } else {
+                        $leadsSkipped++;
+                    }
+
+                } catch (\Exception $e) {
+                    $errors[] = "Row {$rowNumber}: Error processing - " . $e->getMessage();
+                    continue;
+                }
+            }
+
+            // Prepare success message
+            $message = "Import completed: ";
+            $details = [];
+            
+            if ($leadsCreated > 0) {
+                $details[] = "{$leadsCreated} lead(s) created";
+            }
+            if ($companiesCreated > 0) {
+                $details[] = "{$companiesCreated} new company(ies) created";
+            }
+            if ($companiesExisted > 0) {
+                $details[] = "{$companiesExisted} existing company(ies) used";
+            }
+            if ($contactsCreated > 0) {
+                $details[] = "{$contactsCreated} contact(s) created";
+            }
+            if ($leadsSkipped > 0) {
+                $details[] = "{$leadsSkipped} lead(s) already existed and were skipped";
+            }
+            
+            $message .= implode(', ', $details);
+
+            if (!empty($errors)) {
+                $errorMessage = "Import completed with errors: " . implode('; ', array_slice($errors, 0, 5));
+                if (count($errors) > 5) {
+                    $errorMessage .= "; and " . (count($errors) - 5) . " more errors";
+                }
+                return back()->with('warning', $errorMessage)->with('import_stats', $message);
+            }
+
+            return back()->with('success', $message);
+
+        } catch (\Exception $e) {
+            return back()->with('error', 'Error processing file: ' . $e->getMessage());
+        }
+    }
+
+    public function downloadTemplate()
+    {
+        // Only admins can download template
+        if (!auth()->user()->isAdmin()) {
+            abort(403, 'Unauthorized action. Only admins can download template.');
+        }
+
+        $headers = [
+            'Company Name',
+            'Contact Name',
+            'Contact Title',
+            'Contact Email',
+            'Contact Phone',
+            'Contact LinkedIn URL',
+        ];
+
+        $sampleData = [
+            ['Acme Corporation', 'John Doe', 'CEO', 'john.doe@acme.com', '+1-555-0100', 'https://linkedin.com/in/johndoe'],
+            ['Tech Solutions Ltd', 'Jane Smith', 'CTO', 'jane.smith@techsolutions.com', '+1-555-0200', 'https://linkedin.com/in/janesmith'],
+            ['Global Industries', 'Bob Johnson', 'VP Sales', 'bob.johnson@globalind.com', '+1-555-0300', 'https://linkedin.com/in/bobjohnson'],
+        ];
+
+        $callback = function() use ($headers, $sampleData) {
+            $file = fopen('php://output', 'w');
+            fputcsv($file, $headers);
+            foreach ($sampleData as $row) {
+                fputcsv($file, $row);
+            }
+            fclose($file);
+        };
+
+        $fileName = 'campaign_bulk_import_template.csv';
+        
+        return response()->stream($callback, 200, [
+            'Content-Type' => 'text/csv',
+            'Content-Disposition' => 'attachment; filename="' . $fileName . '"',
+        ]);
+    }
 }
 

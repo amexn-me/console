@@ -36,6 +36,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::middleware(['admin'])->group(function () {
             Route::get('campaigns', [CampaignsController::class, 'index'])->name('campaigns.index');
             Route::get('campaigns/create', [CampaignsController::class, 'create'])->name('campaigns.create');
+            Route::get('campaigns/download-template', [CampaignsController::class, 'downloadTemplate'])->name('campaigns.download-template');
             Route::post('campaigns', [CampaignsController::class, 'store'])->name('campaigns.store');
             Route::get('campaigns/{campaign}', [CampaignsController::class, 'show'])->name('campaigns.show');
             Route::get('campaigns/{campaign}/edit', [CampaignsController::class, 'edit'])->name('campaigns.edit');
@@ -49,6 +50,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('campaigns/{campaign}/leads/export', [CampaignsController::class, 'exportLeads'])->name('campaigns.leads.export');
             Route::get('campaigns/{campaign}/agent-activity-analytics/export', [CampaignsController::class, 'exportAgentActivityAnalytics'])->name('campaigns.agent-activity-analytics.export');
             Route::get('campaigns/{campaign}/advance-reports/lead-contact-activity', [CampaignsController::class, 'exportLeadContactActivityReport'])->name('campaigns.advance-reports.lead-contact-activity');
+            Route::post('campaigns/{campaign}/bulk-import/preview', [CampaignsController::class, 'previewImport'])->name('campaigns.bulk-import.preview');
+            Route::post('campaigns/{campaign}/bulk-import', [CampaignsController::class, 'bulkImport'])->name('campaigns.bulk-import');
         });
 
         // Leads - Sales segment and admins
@@ -69,6 +72,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::put('leads/{lead}/contacts/{contact}', [LeadsController::class, 'updateContact'])->name('leads.contacts.update');
             Route::post('leads/{lead}/contacts/{contact}/pic', [LeadsController::class, 'updateContactPIC'])->name('leads.contacts.pic');
             Route::delete('leads/{lead}/contacts/{contact}/invalid', [LeadsController::class, 'invalidateContact'])->name('leads.contacts.invalid');
+            Route::delete('leads/{lead}/contacts/{contact}/dnc', [LeadsController::class, 'markDoNotContact'])->name('leads.contacts.dnc');
             Route::post('leads/{lead}/linkedin-search', [UnipileController::class, 'searchLinkedInLeadsFromLead'])->name('leads.linkedin-search');
         });
 

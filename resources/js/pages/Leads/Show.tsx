@@ -6,11 +6,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Checkbox } from '@/components/ui/checkbox';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import { Head, router, useForm, usePage } from '@inertiajs/react';
 import { useState, useRef, useEffect } from 'react';
-import { Plus, PlusCircle, ExternalLink, UserCheck, UserX, MessageCircle, AlertCircle, Pencil, FileUp, Loader2, Save, X, Trophy, XCircle, Linkedin, ChevronLeft, ChevronRight, Download, Copy, Check, Mail, Phone } from 'lucide-react';
+import { Plus, PlusCircle, ExternalLink, UserCheck, UserX, MessageCircle, AlertCircle, Pencil, FileUp, Loader2, Save, X, Trophy, XCircle, Linkedin, ChevronLeft, ChevronRight, Download, Copy, Check, Mail, Phone, Ban } from 'lucide-react';
 import axios from 'axios';
 import { usePermissions } from '@/hooks/use-permissions';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
@@ -36,6 +37,7 @@ interface Contact {
     is_pic: boolean;
     interest_level: string;
     do_not_contact: boolean;
+    is_invalid: boolean;
     next_followup_date: string | null;
     followup_time: string | null;
 }
@@ -226,6 +228,8 @@ export default function LeadsShow() {
         phone2: '',
         linkedin_url: '',
         interest_level: 'Cold',
+        do_not_contact: false as boolean,
+        is_invalid: false as boolean,
     });
 
     const changeStageForm = useForm({
@@ -610,8 +614,15 @@ export default function LeadsShow() {
 
     const handleInvalidData = (contactId: number) => {
         if (!lead.id) return;
-        if (confirm('Mark this contact as "Do Not Contact"? This will flag the contact as invalid or no longer reachable.')) {
+        if (confirm('Mark this contact as Invalid? This will flag the contact data as invalid or incorrect.')) {
             router.delete(`/sales/leads/${lead.id}/contacts/${contactId}/invalid`);
+        }
+    };
+
+    const handleDNC = (contactId: number) => {
+        if (!lead.id) return;
+        if (confirm('Mark this contact as Do Not Contact? This will prevent further contact attempts.')) {
+            router.delete(`/sales/leads/${lead.id}/contacts/${contactId}/dnc`);
         }
     };
 
@@ -658,6 +669,8 @@ export default function LeadsShow() {
             phone2: contact.phone2 || '',
             linkedin_url: contact.linkedin_url || '',
             interest_level: contact.interest_level,
+            do_not_contact: contact.do_not_contact,
+            is_invalid: contact.is_invalid,
         });
         setEditContactDialogOpen(true);
     };
@@ -785,6 +798,8 @@ export default function LeadsShow() {
             phone2: '',
             linkedin_url: linkedInLead.public_profile_url || '',
             interest_level: 'Cold',
+            do_not_contact: false,
+            is_invalid: false,
         });
         setAddContactDialogOpen(true);
     };
@@ -1047,14 +1062,14 @@ export default function LeadsShow() {
                             </div>
 
                             {/* Partner & Lock-in - Editable */}
-                            <div className="p-4">
-                                <Label className="text-xs text-gray-600 uppercase">Partner & Lock-in</Label>
+                            <div className={`p-4 ${lead.partner ? 'bg-yellow-100 border-l-4 border-yellow-500' : ''}`}>
+                                <Label className={`text-xs uppercase ${lead.partner ? 'text-yellow-900 font-bold' : 'text-gray-600'}`}>Partner & Lock-in</Label>
                                 {!isEditingPartner ? (
                                     <div className="mt-2 flex items-center gap-2">
                                         <div>
-                                            <p className="font-medium text-sm">{lead.partner?.name || 'Not assigned'}</p>
+                                            <p className={`font-semibold text-sm ${lead.partner ? 'text-yellow-900' : ''}`}>{lead.partner?.name || 'Not assigned'}</p>
                                             {lead.lockin_date && (
-                                                <p className="text-xs text-gray-500 mt-1">{lead.lockin_date}</p>
+                                                <p className="text-xs text-yellow-800 font-medium mt-1">{lead.lockin_date.split('T')[0]}</p>
                                             )}
                                         </div>
                                         <Button
@@ -1249,194 +1264,238 @@ export default function LeadsShow() {
                                                                                         contact.next_followup_date 
                                                                                             ? 'border-blue-500' 
                                                                                             : 'border-gray-300'
-                                                                                    } rounded-lg p-3 bg-white ${
+                                                                                    } rounded-lg px-3 py-5 bg-white ${
                                                                                         snapshot.isDragging
                                                                                             ? 'shadow-lg'
                                                                                             : 'hover:shadow-md'
                                                                                     } ${
-                                                                                        contact.do_not_contact
+                                                                                        contact.do_not_contact || contact.is_invalid
                                                                                             ? 'opacity-50 grayscale'
                                                                                             : ''
                                                                                     } transition-shadow cursor-move`}
                                                                                 >
-                                                                                    <div className="flex gap-3">
-                                                                                        {/* Left side - Contact info */}
-                                                                                        <div className="flex-1 min-w-0 space-y-2">
-                                                                                            {/* Name and badges */}
-                                                                                            <div className="flex items-center gap-2 flex-wrap">
-                                                                                                <h4 className="font-semibold text-sm truncate">
-                                                                                                    {contact.name}
-                                                                                                </h4>
-                                                                                                {contact.is_pic && (
-                                                                                                    <span className="px-1.5 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 border border-green-300">
-                                                                                                        PIC
-                                                                                                    </span>
-                                                                                                )}
-                                                                                                {contact.do_not_contact && (
-                                                                                                    <span className="px-1.5 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800 border border-red-300">
-                                                                                                        DNC
-                                                                                                    </span>
-                                                                                                )}
-                                                                                            </div>
+                                                                    <div className="space-y-3">
+                                                                        {/* Contact info */}
+                                                                        <div className="space-y-2">
+                                                                            {/* Name and badges */}
+                                                                            <div className="flex items-center gap-2 flex-wrap">
+                                                                                <h4 className="font-semibold text-sm truncate">
+                                                                                    {contact.name}
+                                                                                </h4>
+                                                                                {contact.is_pic && (
+                                                                                    <span className="px-1.5 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 border border-green-300">
+                                                                                        PIC
+                                                                                    </span>
+                                                                                )}
+                                                                                {contact.is_invalid && (
+                                                                                    <span className="px-1.5 py-0.5 rounded text-xs font-medium bg-orange-100 text-orange-800 border border-orange-300">
+                                                                                        Invalid Data
+                                                                                    </span>
+                                                                                )}
+                                                                                {contact.do_not_contact && (
+                                                                                    <span className="px-1.5 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800 border border-red-300">
+                                                                                        DND
+                                                                                    </span>
+                                                                                )}
+                                                                            </div>
 
-                                                                                            {/* Title */}
-                                                                                            {contact.title && (
-                                                                                                <p className="text-xs text-gray-600 truncate">
-                                                                                                    {contact.title}
-                                                                                                </p>
+                                                                            {/* Title */}
+                                                                            {contact.title && (
+                                                                                <p className="text-xs text-gray-600 truncate">
+                                                                                    {contact.title}
+                                                                                </p>
+                                                                            )}
+
+                                                                            {/* Contact details */}
+                                                                            <div className="space-y-1 text-xs">
+                                                                                {contact.email && (
+                                                                                    <div className="flex items-center gap-2">
+                                                                                        <Mail className="h-3.5 w-3.5 text-gray-500 flex-shrink-0" />
+                                                                                        <span 
+                                                                                            className="text-gray-700 truncate flex-1 cursor-pointer hover:text-blue-600 transition-colors"
+                                                                                            onClick={(e) => {
+                                                                                                e.stopPropagation();
+                                                                                                copyToClipboard(contact.email!, `email-${contact.id}`);
+                                                                                            }}
+                                                                                            title="Click to copy"
+                                                                                        >
+                                                                                            {contact.email}
+                                                                                        </span>
+                                                                                        <button
+                                                                                            onClick={(e) => {
+                                                                                                e.stopPropagation();
+                                                                                                copyToClipboard(contact.email!, `email-${contact.id}`);
+                                                                                            }}
+                                                                                            className="p-1 hover:bg-gray-100 rounded transition-colors flex-shrink-0"
+                                                                                            title="Copy email"
+                                                                                        >
+                                                                                            {copiedItems[`email-${contact.id}`] ? (
+                                                                                                <Check className="h-3 w-3 text-green-600" />
+                                                                                            ) : (
+                                                                                                <Copy className="h-3 w-3 text-gray-500" />
                                                                                             )}
-
-                                                                                            {/* Contact details */}
-                                                                                            <div className="space-y-1 text-xs">
-                                                                                                {contact.email && (
-                                                                                                    <div className="flex items-center gap-2">
-                                                                                                        <Mail className="h-3.5 w-3.5 text-gray-500 flex-shrink-0" />
-                                                                                                        <span 
-                                                                                                            className="text-gray-700 truncate flex-1 cursor-pointer hover:text-blue-600 transition-colors"
-                                                                                                            onClick={(e) => {
-                                                                                                                e.stopPropagation();
-                                                                                                                copyToClipboard(contact.email!, `email-${contact.id}`);
-                                                                                                            }}
-                                                                                                            title="Click to copy"
-                                                                                                        >
-                                                                                                            {contact.email}
-                                                                                                        </span>
-                                                                                                        <button
-                                                                                                            onClick={(e) => {
-                                                                                                                e.stopPropagation();
-                                                                                                                copyToClipboard(contact.email!, `email-${contact.id}`);
-                                                                                                            }}
-                                                                                                            className="p-1 hover:bg-gray-100 rounded transition-colors flex-shrink-0"
-                                                                                                            title="Copy email"
-                                                                                                        >
-                                                                                                            {copiedItems[`email-${contact.id}`] ? (
-                                                                                                                <Check className="h-3 w-3 text-green-600" />
-                                                                                                            ) : (
-                                                                                                                <Copy className="h-3 w-3 text-gray-500" />
-                                                                                                            )}
-                                                                                                        </button>
-                                                                                                    </div>
-                                                                                                )}
-                                                                                                {contact.phone1 && (
-                                                                                                    <div className="flex items-center gap-2">
-                                                                                                        <Phone className="h-3.5 w-3.5 text-gray-500 flex-shrink-0" />
-                                                                                                        <span 
-                                                                                                            className="text-gray-700 flex-1 cursor-pointer hover:text-blue-600 transition-colors"
-                                                                                                            onClick={(e) => {
-                                                                                                                e.stopPropagation();
-                                                                                                                copyToClipboard(contact.phone1!, `phone-${contact.id}`);
-                                                                                                            }}
-                                                                                                            title="Click to copy"
-                                                                                                        >
-                                                                                                            {contact.phone1}
-                                                                                                        </span>
-                                                                                                        <button
-                                                                                                            onClick={(e) => {
-                                                                                                                e.stopPropagation();
-                                                                                                                copyToClipboard(contact.phone1!, `phone-${contact.id}`);
-                                                                                                            }}
-                                                                                                            className="p-1 hover:bg-gray-100 rounded transition-colors flex-shrink-0"
-                                                                                                            title="Copy phone"
-                                                                                                        >
-                                                                                                            {copiedItems[`phone-${contact.id}`] ? (
-                                                                                                                <Check className="h-3 w-3 text-green-600" />
-                                                                                                            ) : (
-                                                                                                                <Copy className="h-3 w-3 text-gray-500" />
-                                                                                                            )}
-                                                                                                        </button>
-                                                                                                    </div>
-                                                                                                )}
-                                                                                            </div>
-
-                                                                                            {/* WhatsApp and LinkedIn buttons */}
-                                                                                            <div className="flex flex-col gap-2 pt-1">
-                                                                                                {contact.phone1 && (
-                                                                                                    <Button
-                                                                                                        variant="outline"
-                                                                                                        size="sm"
-                                                                                                        className="h-8 px-3 text-xs bg-green-50 hover:bg-green-100 border-green-200 w-full justify-start"
-                                                                                                        onClick={() =>
-                                                                                                            window.open(
-                                                                                                                `https://wa.me/${contact.phone1?.replace(/[^0-9]/g, '')}`,
-                                                                                                                '_blank'
-                                                                                                            )
-                                                                                                        }
-                                                                                                    >
-                                                                                                        <MessageCircle className="h-4 w-4 mr-1.5 text-green-600" />
-                                                                                                        WhatsApp
-                                                                                                    </Button>
-                                                                                                )}
-                                                                                                {contact.linkedin_url && (
-                                                                                                    <Button
-                                                                                                        variant="outline"
-                                                                                                        size="sm"
-                                                                                                        className="h-8 px-3 text-xs bg-blue-50 hover:bg-blue-100 border-blue-200 w-full justify-start"
-                                                                                                        onClick={() =>
-                                                                                                            window.open(contact.linkedin_url, '_blank')
-                                                                                                        }
-                                                                                                    >
-                                                                                                        <Linkedin className="h-4 w-4 mr-1.5 text-blue-600" />
-                                                                                                        LinkedIn
-                                                                                                    </Button>
-                                                                                                )}
-                                                                                            </div>
-                                                                                        </div>
-
-                                                                                        {/* Vertical divider */}
-                                                                                        <div className="border-l border-gray-400"></div>
-
-                                                                                        {/* Right side - Action buttons stacked */}
-                                                                                        <div className="flex flex-col gap-1.5">
-                                                                                            <Button
-                                                                                                variant="outline"
-                                                                                                size="sm"
-                                                                                                className="h-7 px-2 text-xs whitespace-nowrap justify-start"
-                                                                                                onClick={() => openUpdateDetailsDialog(contact)}
-                                                                                            >
-                                                                                                <PlusCircle className="h-3 w-3 mr-0.5" />
-                                                                                                Event
-                                                                                            </Button>
-                                                                                            <Button
-                                                                                                variant="outline"
-                                                                                                size="sm"
-                                                                                                className="h-7 px-2 text-xs justify-start"
-                                                                                                onClick={() => handleMarkAsPIC(contact.id)}
-                                                                                                disabled={contact.is_pic}
-                                                                                            >
-                                                                                                <UserCheck className="h-3 w-3 mr-0.5" />
-                                                                                                PIC
-                                                                                            </Button>
-                                                                                            <Button
-                                                                                                variant="outline"
-                                                                                                size="sm"
-                                                                                                className="h-7 px-2 text-xs justify-start"
-                                                                                                onClick={() => handleMarkAsNotPIC(contact.id)}
-                                                                                                disabled={!contact.is_pic}
-                                                                                            >
-                                                                                                <UserX className="h-3 w-3 mr-0.5" />
-                                                                                                Not PIC
-                                                                                            </Button>
-                                                                                            <Button
-                                                                                                variant="outline"
-                                                                                                size="sm"
-                                                                                                className="h-7 px-2 text-xs justify-start"
-                                                                                                onClick={() => handleInvalidData(contact.id)}
-                                                                                                disabled={contact.do_not_contact}
-                                                                                            >
-                                                                                                <AlertCircle className="h-3 w-3 mr-0.5" />
-                                                                                                {contact.do_not_contact ? 'Marked' : 'Invalid'}
-                                                                                            </Button>
-                                                                                            <Button
-                                                                                                variant="outline"
-                                                                                                size="sm"
-                                                                                                className="h-7 px-2 text-xs justify-start"
-                                                                                                onClick={() => openEditContactDialog(contact)}
-                                                                                            >
-                                                                                                <Pencil className="h-3 w-3 mr-0.5" />
-                                                                                                Edit
-                                                                                            </Button>
-                                                                                        </div>
+                                                                                        </button>
                                                                                     </div>
+                                                                                )}
+                                                                                {contact.phone1 && (
+                                                                                    <div className="flex items-center gap-2">
+                                                                                        <Phone className="h-3.5 w-3.5 text-gray-500 flex-shrink-0" />
+                                                                                        <span 
+                                                                                            className="text-gray-700 flex-1 cursor-pointer hover:text-blue-600 transition-colors"
+                                                                                            onClick={(e) => {
+                                                                                                e.stopPropagation();
+                                                                                                copyToClipboard(contact.phone1!, `phone1-${contact.id}`);
+                                                                                            }}
+                                                                                            title="Click to copy"
+                                                                                        >
+                                                                                            {contact.phone1}
+                                                                                        </span>
+                                                                                        <button
+                                                                                            onClick={(e) => {
+                                                                                                e.stopPropagation();
+                                                                                                copyToClipboard(contact.phone1!, `phone1-${contact.id}`);
+                                                                                            }}
+                                                                                            className="p-1 hover:bg-gray-100 rounded transition-colors flex-shrink-0"
+                                                                                            title="Copy phone"
+                                                                                        >
+                                                                                            {copiedItems[`phone1-${contact.id}`] ? (
+                                                                                                <Check className="h-3 w-3 text-green-600" />
+                                                                                            ) : (
+                                                                                                <Copy className="h-3 w-3 text-gray-500" />
+                                                                                            )}
+                                                                                        </button>
+                                                                                    </div>
+                                                                                )}
+                                                                                {contact.phone2 && (
+                                                                                    <div className="flex items-center gap-2">
+                                                                                        <Phone className="h-3.5 w-3.5 text-gray-500 flex-shrink-0" />
+                                                                                        <span 
+                                                                                            className="text-gray-700 flex-1 cursor-pointer hover:text-blue-600 transition-colors"
+                                                                                            onClick={(e) => {
+                                                                                                e.stopPropagation();
+                                                                                                copyToClipboard(contact.phone2!, `phone2-${contact.id}`);
+                                                                                            }}
+                                                                                            title="Click to copy"
+                                                                                        >
+                                                                                            {contact.phone2}
+                                                                                        </span>
+                                                                                        <button
+                                                                                            onClick={(e) => {
+                                                                                                e.stopPropagation();
+                                                                                                copyToClipboard(contact.phone2!, `phone2-${contact.id}`);
+                                                                                            }}
+                                                                                            className="p-1 hover:bg-gray-100 rounded transition-colors flex-shrink-0"
+                                                                                            title="Copy phone"
+                                                                                        >
+                                                                                            {copiedItems[`phone2-${contact.id}`] ? (
+                                                                                                <Check className="h-3 w-3 text-green-600" />
+                                                                                            ) : (
+                                                                                                <Copy className="h-3 w-3 text-gray-500" />
+                                                                                            )}
+                                                                                        </button>
+                                                                                    </div>
+                                                                                )}
+                                                                            </div>
+
+                                                                            {/* WhatsApp and LinkedIn buttons */}
+                                                                            <div className="flex gap-2 pt-1 flex-wrap">
+                                                                                {contact.phone1 && (
+                                                                                    <Button
+                                                                                        variant="outline"
+                                                                                        size="sm"
+                                                                                        className="h-8 px-3 text-xs bg-green-50 hover:bg-green-100 border-green-200 justify-start"
+                                                                                        onClick={() =>
+                                                                                            window.open(
+                                                                                                `https://wa.me/${contact.phone1?.replace(/[^0-9]/g, '')}`,
+                                                                                                '_blank'
+                                                                                            )
+                                                                                        }
+                                                                                    >
+                                                                                        <MessageCircle className="h-4 w-4 mr-1.5 text-green-600" />
+                                                                                        WhatsApp
+                                                                                    </Button>
+                                                                                )}
+                                                                                {contact.linkedin_url && (
+                                                                                    <Button
+                                                                                        variant="outline"
+                                                                                        size="sm"
+                                                                                        className="h-8 px-3 text-xs bg-blue-50 hover:bg-blue-100 border-blue-200 justify-start"
+                                                                                        onClick={() =>
+                                                                                            window.open(contact.linkedin_url, '_blank')
+                                                                                        }
+                                                                                    >
+                                                                                        <Linkedin className="h-4 w-4 mr-1.5 text-blue-600" />
+                                                                                        LinkedIn
+                                                                                    </Button>
+                                                                                )}
+                                                                            </div>
+                                                                        </div>
+
+                                                                        {/* Horizontal divider */}
+                                                                        <div className="border-t border-gray-200"></div>
+
+                                                                        {/* Action buttons at bottom */}
+                                                                        <div className="grid grid-cols-3 gap-1.5">
+                                                                            <Button
+                                                                                variant="outline"
+                                                                                size="sm"
+                                                                                className="h-8 px-2 text-xs whitespace-nowrap justify-center"
+                                                                                onClick={() => openUpdateDetailsDialog(contact)}
+                                                                            >
+                                                                                <PlusCircle className="h-3 w-3 mr-1" />
+                                                                                Event
+                                                                            </Button>
+                                                                            <Button
+                                                                                variant="outline"
+                                                                                size="sm"
+                                                                                className="h-8 px-2 text-xs justify-center"
+                                                                                onClick={() => handleMarkAsPIC(contact.id)}
+                                                                                disabled={contact.is_pic}
+                                                                            >
+                                                                                <UserCheck className="h-3 w-3 mr-1" />
+                                                                                PIC
+                                                                            </Button>
+                                                                            <Button
+                                                                                variant="outline"
+                                                                                size="sm"
+                                                                                className="h-8 px-2 text-xs justify-center"
+                                                                                onClick={() => handleMarkAsNotPIC(contact.id)}
+                                                                                disabled={!contact.is_pic}
+                                                                            >
+                                                                                <UserX className="h-3 w-3 mr-1" />
+                                                                                Not PIC
+                                                                            </Button>
+                                                                            <Button
+                                                                                variant="outline"
+                                                                                size="sm"
+                                                                                className="h-8 px-2 text-xs justify-center"
+                                                                                onClick={() => handleInvalidData(contact.id)}
+                                                                                disabled={contact.is_invalid}
+                                                                            >
+                                                                                <AlertCircle className="h-3 w-3 mr-1" />
+                                                                                {contact.is_invalid ? 'Invalid' : 'Invalid'}
+                                                                            </Button>
+                                                                            <Button
+                                                                                variant="outline"
+                                                                                size="sm"
+                                                                                className="h-8 px-2 text-xs justify-center"
+                                                                                onClick={() => handleDNC(contact.id)}
+                                                                                disabled={contact.do_not_contact}
+                                                                            >
+                                                                                <Ban className="h-3 w-3 mr-1" />
+                                                                                {contact.do_not_contact ? 'DND' : 'DND'}
+                                                                            </Button>
+                                                                            <Button
+                                                                                variant="outline"
+                                                                                size="sm"
+                                                                                className="h-8 px-2 text-xs justify-center"
+                                                                                onClick={() => openEditContactDialog(contact)}
+                                                                            >
+                                                                                <Pencil className="h-3 w-3 mr-1" />
+                                                                                Edit
+                                                                            </Button>
+                                                                        </div>
+                                                                    </div>
                                                                                     
                                                                                     {/* Follow-up badge on bottom border */}
                                                                                     {contact.next_followup_date && (
@@ -2462,6 +2521,35 @@ export default function LeadsShow() {
                                         value={contactForm.data.linkedin_url}
                                         onChange={(e) => contactForm.setData('linkedin_url', e.target.value)}
                                     />
+                                </div>
+
+                                <div className="col-span-2 space-y-3 pt-2">
+                                    <div className="flex items-center space-x-2">
+                                        <Checkbox
+                                            id="edit_contact_is_invalid"
+                                            checked={contactForm.data.is_invalid}
+                                            onCheckedChange={(checked) => contactForm.setData('is_invalid', checked as boolean)}
+                                        />
+                                        <Label 
+                                            htmlFor="edit_contact_is_invalid" 
+                                            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                                        >
+                                            Mark as Invalid Data
+                                        </Label>
+                                    </div>
+                                    <div className="flex items-center space-x-2">
+                                        <Checkbox
+                                            id="edit_contact_dnc"
+                                            checked={contactForm.data.do_not_contact}
+                                            onCheckedChange={(checked) => contactForm.setData('do_not_contact', checked as boolean)}
+                                        />
+                                        <Label 
+                                            htmlFor="edit_contact_dnc" 
+                                            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                                        >
+                                            Mark as Do Not Contact (DND)
+                                        </Label>
+                                    </div>
                                 </div>
                             </div>
 
