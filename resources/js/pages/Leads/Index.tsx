@@ -104,6 +104,21 @@ export default function LeadsIndex() {
     const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>(filters.sort_direction || 'asc');
     const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
+    // Helper function to build query string for navigation
+    const buildLeadUrl = (leadId: number): string => {
+        const params = new URLSearchParams();
+        if (searchQuery) params.append('search', searchQuery);
+        if (selectedCampaigns.length > 0) selectedCampaigns.forEach(c => params.append('campaign_id[]', c));
+        if (selectedStages.length > 0) selectedStages.forEach(s => params.append('stage[]', s));
+        if (selectedAgents.length > 0) selectedAgents.forEach(a => params.append('agent_id[]', a));
+        if (sortBy) {
+            params.append('sort_by', sortBy);
+            params.append('sort_direction', sortDirection);
+        }
+        const queryString = params.toString();
+        return `/sales/leads/${leadId}${queryString ? `?${queryString}` : ''}`;
+    };
+
     const loadMoreLeads = useCallback(() => {
         if (loadingRef.current || !hasMorePages || isLoadingMore) return;
 
@@ -579,36 +594,36 @@ export default function LeadsIndex() {
                                                 className="cursor-pointer hover:bg-gray-50"
                                             >
                                                 <TableCell className="font-medium max-w-[250px] whitespace-normal break-words p-0">
-                                                    <Link href={`/sales/leads/${lead.id}`} className="block px-4 py-4">
+                                                    <Link href={buildLeadUrl(lead.id)} className="block px-4 py-4">
                                                         {lead.company.name}
                                                     </Link>
                                                 </TableCell>
                                                 <TableCell className="text-sm p-0">
-                                                    <Link href={`/sales/leads/${lead.id}`} className="block px-4 py-4">
+                                                    <Link href={buildLeadUrl(lead.id)} className="block px-4 py-4">
                                                         {lead.campaign.name}
                                                     </Link>
                                                 </TableCell>
                                                 <TableCell className="p-0">
-                                                    <Link href={`/sales/leads/${lead.id}`} className="block px-4 py-4">
+                                                    <Link href={buildLeadUrl(lead.id)} className="block px-4 py-4">
                                                         <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${getStageBadgeColor(lead.stage)}`}>
                                                             {lead.stage}
                                                         </span>
                                                     </Link>
                                                 </TableCell>
                                                 <TableCell className="p-0">
-                                                    <Link href={`/sales/leads/${lead.id}`} className="block px-4 py-4">
+                                                    <Link href={buildLeadUrl(lead.id)} className="block px-4 py-4">
                                                         {lead.agent ? lead.agent.name : '-'}
                                                     </Link>
                                                 </TableCell>
                                                 <TableCell className="text-center p-0">
-                                                    <Link href={`/sales/leads/${lead.id}`} className="block px-4 py-4">
+                                                    <Link href={buildLeadUrl(lead.id)} className="block px-4 py-4">
                                                         <span className="inline-flex items-center justify-center px-2 py-1 rounded-full bg-blue-100 text-blue-800 text-xs font-medium">
                                                             {lead.contacts_count}
                                                         </span>
                                                     </Link>
                                                 </TableCell>
                                                 <TableCell className="text-sm text-gray-600 p-0">
-                                                    <Link href={`/sales/leads/${lead.id}`} className="block px-4 py-4">
+                                                    <Link href={buildLeadUrl(lead.id)} className="block px-4 py-4">
                                                         {lead.next_followup_date 
                                                             ? new Date(lead.next_followup_date).toLocaleDateString('en-US', {
                                                                 year: 'numeric',
@@ -619,14 +634,14 @@ export default function LeadsIndex() {
                                                     </Link>
                                                 </TableCell>
                                                 <TableCell className="text-sm text-gray-600 p-0">
-                                                    <Link href={`/sales/leads/${lead.id}`} className="block px-4 py-4">
+                                                    <Link href={buildLeadUrl(lead.id)} className="block px-4 py-4">
                                                         {lead.last_activity_date 
                                                             ? formatDateTime(lead.last_activity_date)
                                                             : '-'}
                                                     </Link>
                                                 </TableCell>
                                                 <TableCell className="p-0">
-                                                    <Link href={`/sales/leads/${lead.id}`} className="block px-4 py-4">
+                                                    <Link href={buildLeadUrl(lead.id)} className="block px-4 py-4">
                                                         {lead.partner ? lead.partner.name : '-'}
                                                     </Link>
                                                 </TableCell>

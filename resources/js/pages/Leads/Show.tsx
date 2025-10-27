@@ -112,12 +112,44 @@ interface PageProps {
     remarkOptions: string[];
     nextLeadId: number | null;
     previousLeadId: number | null;
+    filters?: {
+        search?: string;
+        campaign_id?: string | string[];
+        stage?: string | string[];
+        agent_id?: string | string[];
+        sort_by?: string;
+        sort_direction?: string;
+    };
     [key: string]: any;
 }
 
 export default function LeadsShow() {
-    const { lead, agents = [], partners = [], stages = [], conversationMethods = [], interestLevels = [], remarkOptions = [], nextLeadId = null, previousLeadId = null } = usePage<PageProps>().props;
+    const { lead, agents = [], partners = [], stages = [], conversationMethods = [], interestLevels = [], remarkOptions = [], nextLeadId = null, previousLeadId = null, filters = {} } = usePage<PageProps>().props;
     const permissions = usePermissions();
+    
+    // Helper function to build query string for navigation
+    const buildLeadUrl = (leadId: number): string => {
+        const params = new URLSearchParams();
+        if (filters.search) params.append('search', filters.search);
+        if (filters.campaign_id) {
+            const campaignIds = Array.isArray(filters.campaign_id) ? filters.campaign_id : [filters.campaign_id];
+            campaignIds.forEach(c => params.append('campaign_id[]', c));
+        }
+        if (filters.stage) {
+            const stages = Array.isArray(filters.stage) ? filters.stage : [filters.stage];
+            stages.forEach(s => params.append('stage[]', s));
+        }
+        if (filters.agent_id) {
+            const agentIds = Array.isArray(filters.agent_id) ? filters.agent_id : [filters.agent_id];
+            agentIds.forEach(a => params.append('agent_id[]', a));
+        }
+        if (filters.sort_by) {
+            params.append('sort_by', filters.sort_by);
+            params.append('sort_direction', filters.sort_direction || 'desc');
+        }
+        const queryString = params.toString();
+        return `/sales/leads/${leadId}${queryString ? `?${queryString}` : ''}`;
+    };
     
     const [notesDialogOpen, setNotesDialogOpen] = useState(false);
     const [updateDetailsDialogOpen, setUpdateDetailsDialogOpen] = useState(false);
@@ -921,7 +953,7 @@ export default function LeadsShow() {
                             <div className="flex gap-1">
                                 <Button
                                     variant="outline"
-                                    onClick={() => previousLeadId && router.visit(`/sales/leads/${previousLeadId}`)}
+                                    onClick={() => previousLeadId && router.visit(buildLeadUrl(previousLeadId))}
                                     disabled={!previousLeadId}
                                     title="Previous Lead"
                                 >
@@ -929,7 +961,7 @@ export default function LeadsShow() {
                                 </Button>
                                 <Button
                                     variant="outline"
-                                    onClick={() => nextLeadId && router.visit(`/sales/leads/${nextLeadId}`)}
+                                    onClick={() => nextLeadId && router.visit(buildLeadUrl(nextLeadId))}
                                     disabled={!nextLeadId}
                                     title="Next Lead"
                                 >
