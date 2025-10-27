@@ -112,44 +112,12 @@ interface PageProps {
     remarkOptions: string[];
     nextLeadId: number | null;
     previousLeadId: number | null;
-    filters?: {
-        search?: string;
-        campaign_id?: string | string[];
-        stage?: string | string[];
-        agent_id?: string | string[];
-        sort_by?: string;
-        sort_direction?: string;
-    };
     [key: string]: any;
 }
 
 export default function LeadsShow() {
-    const { lead, agents = [], partners = [], stages = [], conversationMethods = [], interestLevels = [], remarkOptions = [], nextLeadId = null, previousLeadId = null, filters = {} } = usePage<PageProps>().props;
+    const { lead, agents = [], partners = [], stages = [], conversationMethods = [], interestLevels = [], remarkOptions = [], nextLeadId = null, previousLeadId = null } = usePage<PageProps>().props;
     const permissions = usePermissions();
-    
-    // Helper function to build query string for navigation
-    const buildLeadUrl = (leadId: number): string => {
-        const params = new URLSearchParams();
-        if (filters.search) params.append('search', filters.search);
-        if (filters.campaign_id) {
-            const campaignIds = Array.isArray(filters.campaign_id) ? filters.campaign_id : [filters.campaign_id];
-            campaignIds.forEach(c => params.append('campaign_id[]', c));
-        }
-        if (filters.stage) {
-            const stages = Array.isArray(filters.stage) ? filters.stage : [filters.stage];
-            stages.forEach(s => params.append('stage[]', s));
-        }
-        if (filters.agent_id) {
-            const agentIds = Array.isArray(filters.agent_id) ? filters.agent_id : [filters.agent_id];
-            agentIds.forEach(a => params.append('agent_id[]', a));
-        }
-        if (filters.sort_by) {
-            params.append('sort_by', filters.sort_by);
-            params.append('sort_direction', filters.sort_direction || 'desc');
-        }
-        const queryString = params.toString();
-        return `/sales/leads/${leadId}${queryString ? `?${queryString}` : ''}`;
-    };
     
     const [notesDialogOpen, setNotesDialogOpen] = useState(false);
     const [updateDetailsDialogOpen, setUpdateDetailsDialogOpen] = useState(false);
@@ -953,7 +921,7 @@ export default function LeadsShow() {
                             <div className="flex gap-1">
                                 <Button
                                     variant="outline"
-                                    onClick={() => previousLeadId && router.visit(buildLeadUrl(previousLeadId))}
+                                    onClick={() => previousLeadId && router.visit(`/sales/leads/${previousLeadId}`)}
                                     disabled={!previousLeadId}
                                     title="Previous Lead"
                                 >
@@ -961,7 +929,7 @@ export default function LeadsShow() {
                                 </Button>
                                 <Button
                                     variant="outline"
-                                    onClick={() => nextLeadId && router.visit(buildLeadUrl(nextLeadId))}
+                                    onClick={() => nextLeadId && router.visit(`/sales/leads/${nextLeadId}`)}
                                     disabled={!nextLeadId}
                                     title="Next Lead"
                                 >
@@ -1281,7 +1249,7 @@ export default function LeadsShow() {
                                                                                         contact.next_followup_date 
                                                                                             ? 'border-blue-500' 
                                                                                             : 'border-gray-300'
-                                                                                    } rounded-lg p-5 bg-white ${
+                                                                                    } rounded-lg p-3 bg-white ${
                                                                                         snapshot.isDragging
                                                                                             ? 'shadow-lg'
                                                                                             : 'hover:shadow-md'
@@ -1291,9 +1259,9 @@ export default function LeadsShow() {
                                                                                             : ''
                                                                                     } transition-shadow cursor-move`}
                                                                                 >
-                                                                                    <div className="space-y-4">
-                                                                                        {/* Contact info */}
-                                                                                        <div className="space-y-3">
+                                                                                    <div className="flex gap-3">
+                                                                                        {/* Left side - Contact info */}
+                                                                                        <div className="flex-1 min-w-0 space-y-2">
                                                                                             {/* Name and badges */}
                                                                                             <div className="flex items-center gap-2 flex-wrap">
                                                                                                 <h4 className="font-semibold text-sm truncate">
@@ -1378,44 +1346,15 @@ export default function LeadsShow() {
                                                                                                         </button>
                                                                                                     </div>
                                                                                                 )}
-                                                                                                {contact.phone2 && (
-                                                                                                    <div className="flex items-center gap-2">
-                                                                                                        <Phone className="h-3.5 w-3.5 text-gray-500 flex-shrink-0" />
-                                                                                                        <span 
-                                                                                                            className="text-gray-700 flex-1 cursor-pointer hover:text-blue-600 transition-colors"
-                                                                                                            onClick={(e) => {
-                                                                                                                e.stopPropagation();
-                                                                                                                copyToClipboard(contact.phone2!, `phone2-${contact.id}`);
-                                                                                                            }}
-                                                                                                            title="Click to copy"
-                                                                                                        >
-                                                                                                            {contact.phone2}
-                                                                                                        </span>
-                                                                                                        <button
-                                                                                                            onClick={(e) => {
-                                                                                                                e.stopPropagation();
-                                                                                                                copyToClipboard(contact.phone2!, `phone2-${contact.id}`);
-                                                                                                            }}
-                                                                                                            className="p-1 hover:bg-gray-100 rounded transition-colors flex-shrink-0"
-                                                                                                            title="Copy phone"
-                                                                                                        >
-                                                                                                            {copiedItems[`phone2-${contact.id}`] ? (
-                                                                                                                <Check className="h-3 w-3 text-green-600" />
-                                                                                                            ) : (
-                                                                                                                <Copy className="h-3 w-3 text-gray-500" />
-                                                                                                            )}
-                                                                                                        </button>
-                                                                                                    </div>
-                                                                                                )}
                                                                                             </div>
 
                                                                                             {/* WhatsApp and LinkedIn buttons */}
-                                                                                            <div className="flex flex-wrap gap-2">
+                                                                                            <div className="flex flex-col gap-2 pt-1">
                                                                                                 {contact.phone1 && (
                                                                                                     <Button
                                                                                                         variant="outline"
                                                                                                         size="sm"
-                                                                                                        className="h-8 px-3 text-xs bg-green-50 hover:bg-green-100 border-green-200 flex-1 justify-start"
+                                                                                                        className="h-8 px-3 text-xs bg-green-50 hover:bg-green-100 border-green-200 w-full justify-start"
                                                                                                         onClick={() =>
                                                                                                             window.open(
                                                                                                                 `https://wa.me/${contact.phone1?.replace(/[^0-9]/g, '')}`,
@@ -1431,7 +1370,7 @@ export default function LeadsShow() {
                                                                                                     <Button
                                                                                                         variant="outline"
                                                                                                         size="sm"
-                                                                                                        className="h-8 px-3 text-xs bg-blue-50 hover:bg-blue-100 border-blue-200 flex-1 justify-start"
+                                                                                                        className="h-8 px-3 text-xs bg-blue-50 hover:bg-blue-100 border-blue-200 w-full justify-start"
                                                                                                         onClick={() =>
                                                                                                             window.open(contact.linkedin_url, '_blank')
                                                                                                         }
@@ -1443,64 +1382,57 @@ export default function LeadsShow() {
                                                                                             </div>
                                                                                         </div>
 
-                                                                                        {/* Action buttons at bottom - 3 per row */}
-                                                                                        <div className="flex flex-wrap gap-2 pt-3 border-t border-gray-200">
+                                                                                        {/* Vertical divider */}
+                                                                                        <div className="border-l border-gray-400"></div>
+
+                                                                                        {/* Right side - Action buttons stacked */}
+                                                                                        <div className="flex flex-col gap-1.5">
                                                                                             <Button
                                                                                                 variant="outline"
                                                                                                 size="sm"
-                                                                                                className="h-8 px-2 text-xs whitespace-nowrap flex-1 basis-[calc(33.333%-0.5rem)] justify-center"
+                                                                                                className="h-7 px-2 text-xs whitespace-nowrap justify-start"
                                                                                                 onClick={() => openUpdateDetailsDialog(contact)}
                                                                                             >
-                                                                                                <PlusCircle className="h-3.5 w-3.5 mr-1" />
+                                                                                                <PlusCircle className="h-3 w-3 mr-0.5" />
                                                                                                 Event
                                                                                             </Button>
                                                                                             <Button
                                                                                                 variant="outline"
                                                                                                 size="sm"
-                                                                                                className="h-8 px-2 text-xs flex-1 basis-[calc(33.333%-0.5rem)] justify-center"
+                                                                                                className="h-7 px-2 text-xs justify-start"
                                                                                                 onClick={() => handleMarkAsPIC(contact.id)}
                                                                                                 disabled={contact.is_pic}
                                                                                             >
-                                                                                                <UserCheck className="h-3.5 w-3.5 mr-1" />
+                                                                                                <UserCheck className="h-3 w-3 mr-0.5" />
                                                                                                 PIC
                                                                                             </Button>
                                                                                             <Button
                                                                                                 variant="outline"
                                                                                                 size="sm"
-                                                                                                className="h-8 px-2 text-xs flex-1 basis-[calc(33.333%-0.5rem)] justify-center"
+                                                                                                className="h-7 px-2 text-xs justify-start"
                                                                                                 onClick={() => handleMarkAsNotPIC(contact.id)}
                                                                                                 disabled={!contact.is_pic}
                                                                                             >
-                                                                                                <UserX className="h-3.5 w-3.5 mr-1" />
+                                                                                                <UserX className="h-3 w-3 mr-0.5" />
                                                                                                 Not PIC
                                                                                             </Button>
                                                                                             <Button
                                                                                                 variant="outline"
                                                                                                 size="sm"
-                                                                                                className="h-8 px-2 text-xs flex-1 basis-[calc(33.333%-0.5rem)] justify-center"
+                                                                                                className="h-7 px-2 text-xs justify-start"
                                                                                                 onClick={() => handleInvalidData(contact.id)}
                                                                                                 disabled={contact.do_not_contact}
                                                                                             >
-                                                                                                <AlertCircle className="h-3.5 w-3.5 mr-1" />
-                                                                                                Invalid
+                                                                                                <AlertCircle className="h-3 w-3 mr-0.5" />
+                                                                                                {contact.do_not_contact ? 'Marked' : 'Invalid'}
                                                                                             </Button>
                                                                                             <Button
                                                                                                 variant="outline"
                                                                                                 size="sm"
-                                                                                                className="h-8 px-2 text-xs flex-1 basis-[calc(33.333%-0.5rem)] justify-center"
-                                                                                                onClick={() => handleInvalidData(contact.id)}
-                                                                                                disabled={contact.do_not_contact}
-                                                                                            >
-                                                                                                <XCircle className="h-3.5 w-3.5 mr-1" />
-                                                                                                DND
-                                                                                            </Button>
-                                                                                            <Button
-                                                                                                variant="outline"
-                                                                                                size="sm"
-                                                                                                className="h-8 px-2 text-xs flex-1 basis-[calc(33.333%-0.5rem)] justify-center"
+                                                                                                className="h-7 px-2 text-xs justify-start"
                                                                                                 onClick={() => openEditContactDialog(contact)}
                                                                                             >
-                                                                                                <Pencil className="h-3.5 w-3.5 mr-1" />
+                                                                                                <Pencil className="h-3 w-3 mr-0.5" />
                                                                                                 Edit
                                                                                             </Button>
                                                                                         </div>

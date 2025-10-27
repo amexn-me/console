@@ -108,7 +108,7 @@ class LeadContactActivityReportExport implements FromCollection, WithHeadings, W
 
         // Get leads with stage changes in period
         $stageChanges = Activity::whereIn('lead_id', $leadIds)
-            ->whereIn('activity_type', ['stage_changed', 'stage_update'])
+            ->where('activity_type', 'stage_change')
             ->whereBetween('created_at', [
                 $this->startDate . ' 00:00:00',
                 $this->endDate . ' 23:59:59'

@@ -264,7 +264,7 @@ class LeadsController extends Controller
         );
     }
 
-    public function show(Request $request, Lead $lead)
+    public function show(Lead $lead)
     {
         $user = auth()->user();
         
@@ -273,17 +273,8 @@ class LeadsController extends Controller
             abort(403, 'Unauthorized action. You can only view leads where you are the agent.');
         }
 
-        // Load lead with relationships - optimize by selecting only needed fields
-        $lead->load([
-            'campaign:id,name,product_id',
-            'company:id,name',
-            'company.contacts' => function ($query) {
-                $query->select('id', 'company_id', 'name', 'title', 'email', 'phone1', 'phone2', 'linkedin_url', 'interest_level', 'is_pic', 'do_not_contact', 'next_followup_date', 'next_followup_datetime');
-            },
-            'agent:id,name,email',
-            'partner:id,name',
-            'files:id,company_id,lead_id,file_category,filename,original_filename,file_path,file_size,uploaded_at'
-        ]);
+        // Load lead with relationships
+        $lead->load(['campaign', 'company.contacts', 'agent', 'partner', 'files']);
 
         // Get agents list
         if (!$user->isAdmin()) {
@@ -336,7 +327,7 @@ class LeadsController extends Controller
             'Not interested at this time'
         ];
 
-        // Build the same query as the index page to respect filters
+        // Find next and previous leads
         $query = Lead::query();
         
         // Filter by user's accessible leads
@@ -346,65 +337,20 @@ class LeadsController extends Controller
             $query->where('agent_id', $user->id);
         }
         
-        // Apply the same filters from the index page
-        if ($request->filled('campaign_id')) {
-            $campaignIds = is_array($request->campaign_id) ? $request->campaign_id : [$request->campaign_id];
-            $query->whereIn('campaign_id', $campaignIds);
-        }
-
-        if ($request->filled('stage')) {
-            $stages = is_array($request->stage) ? $request->stage : [$request->stage];
-            $query->whereIn('stage', $stages);
-        }
-
-        if ($request->filled('agent_id')) {
-            $agentIds = is_array($request->agent_id) ? $request->agent_id : [$request->agent_id];
-            $query->whereIn('agent_id', $agentIds);
-        }
-
-        if ($request->filled('search')) {
-            $query->whereHas('company', function ($q) use ($request) {
-                $q->whereRaw('LOWER(name) LIKE ?', ['%' . strtolower($request->search) . '%']);
-            });
-        }
-
-        // Apply sorting (same as index page defaults)
-        $sortBy = $request->input('sort_by', 'id');
-        $sortDirection = $request->input('sort_direction', 'desc');
-        
-        // Check if the result set is reasonable size (safety check)
-        $totalCount = (clone $query)->count();
+        // Get all lead IDs in order (by id descending)
+        $leadIds = $query->orderBy('id', 'desc')->pluck('id')->toArray();
+        $currentIndex = array_search($lead->id, $leadIds);
         
         $nextLeadId = null;
         $previousLeadId = null;
         
-        // Only load IDs if result set is reasonable (<= 2000 leads)
-        // This respects filters while avoiding nginx buffer issues
-        if ($totalCount <= 2000) {
-            // Get all lead IDs in the filtered/sorted order
-            $leadIds = (clone $query)->orderBy($sortBy, $sortDirection)->pluck('id')->toArray();
-            $currentIndex = array_search($lead->id, $leadIds);
-            
-            if ($currentIndex !== false) {
-                if ($currentIndex > 0) {
-                    $previousLeadId = $leadIds[$currentIndex - 1];
-                }
-                if ($currentIndex < count($leadIds) - 1) {
-                    $nextLeadId = $leadIds[$currentIndex + 1];
-                }
+        if ($currentIndex !== false) {
+            if ($currentIndex > 0) {
+                $previousLeadId = $leadIds[$currentIndex - 1];
             }
-        } else {
-            // Fallback: For large result sets, use simple ID-based navigation
-            // This prevents buffer overflow but won't respect sorting
-            $previousLeadId = (clone $query)
-                ->where('id', '>', $lead->id)
-                ->orderBy('id', 'asc')
-                ->value('id');
-            
-            $nextLeadId = (clone $query)
-                ->where('id', '<', $lead->id)
-                ->orderBy('id', 'desc')
-                ->value('id');
+            if ($currentIndex < count($leadIds) - 1) {
+                $nextLeadId = $leadIds[$currentIndex + 1];
+            }
         }
 
         return Inertia::render('Leads/Show', [
@@ -417,14 +363,6 @@ class LeadsController extends Controller
             'remarkOptions' => $remarkOptions,
             'nextLeadId' => $nextLeadId,
             'previousLeadId' => $previousLeadId,
-            'filters' => [
-                'search' => $request->search,
-                'campaign_id' => $request->campaign_id,
-                'stage' => $request->stage,
-                'agent_id' => $request->agent_id,
-                'sort_by' => $request->sort_by,
-                'sort_direction' => $request->sort_direction,
-            ],
         ]);
     }
 
