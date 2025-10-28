@@ -7,6 +7,7 @@ use App\Http\Controllers\ContactsController;
 use App\Http\Controllers\UsersController;
 use App\Http\Controllers\ActivityLogsController;
 use App\Http\Controllers\LeadsController;
+use App\Http\Controllers\FollowupsController;
 use App\Http\Controllers\CampaignsController;
 use App\Http\Controllers\ProjectsController;
 use App\Http\Controllers\ContractsController;
@@ -58,6 +59,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::middleware(['segment:sales'])->group(function () {
             Route::get('leads', [LeadsController::class, 'index'])->name('leads.index');
             Route::get('leads/export', [LeadsController::class, 'export'])->name('leads.export');
+            Route::get('followups', [FollowupsController::class, 'index'])->name('followups.index');
             Route::get('leads/{lead}', [LeadsController::class, 'show'])->name('leads.show');
             Route::get('leads/{lead}/activities', [LeadsController::class, 'getLeadActivities'])->name('leads.activities');
             Route::get('leads/{lead}/activities/export', [LeadsController::class, 'exportLeadActivities'])->name('leads.activities.export');

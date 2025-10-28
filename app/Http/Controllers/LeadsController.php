@@ -423,6 +423,7 @@ class LeadsController extends Controller
             'contact_id' => 'nullable|integer|exists:contact,id',
             'next_followup_date' => 'nullable|date',
             'followup_time' => 'nullable|string',
+            'user_timezone' => 'nullable|string',
             'lead_stage' => 'required|string',
             'interest_level' => 'required|string',
             'remarks' => 'nullable|string',
@@ -453,7 +454,19 @@ class LeadsController extends Controller
                     $followupDatetime = null;
                     if (!empty($validated['next_followup_date'])) {
                         $followupTime = $validated['followup_time'] ?? '09:00';
-                        $followupDatetime = Carbon::parse($validated['next_followup_date'] . ' ' . $followupTime);
+                        $userTimezone = $validated['user_timezone'] ?? 'UTC';
+                        
+                        // Parse the date/time in the user's timezone
+                        // Then convert to UTC for storage
+                        try {
+                            $followupDatetime = Carbon::parse(
+                                $validated['next_followup_date'] . ' ' . $followupTime,
+                                $userTimezone
+                            )->setTimezone('UTC');
+                        } catch (\Exception $e) {
+                            // Fallback to UTC if timezone is invalid
+                            $followupDatetime = Carbon::parse($validated['next_followup_date'] . ' ' . $followupTime);
+                        }
                     }
                     
                     $contact->update([
@@ -467,6 +480,23 @@ class LeadsController extends Controller
 
             // Log activity
             $maxId = Activity::max('id') ?? 0;
+            
+            // Calculate followup datetime for activity log (same as contact)
+            $activityFollowupDatetime = null;
+            if (!empty($validated['next_followup_date'])) {
+                $followupTime = $validated['followup_time'] ?? '09:00';
+                $userTimezone = $validated['user_timezone'] ?? 'UTC';
+                
+                try {
+                    $activityFollowupDatetime = Carbon::parse(
+                        $validated['next_followup_date'] . ' ' . $followupTime,
+                        $userTimezone
+                    )->setTimezone('UTC');
+                } catch (\Exception $e) {
+                    $activityFollowupDatetime = Carbon::parse($validated['next_followup_date'] . ' ' . $followupTime);
+                }
+            }
+            
             Activity::create([
                 'id' => $maxId + 1,
                 'company_id' => $lead->company_id,
@@ -477,6 +507,7 @@ class LeadsController extends Controller
                 'conversation_method' => $validated['conversation_method'],
                 'conversation_connected' => $validated['conversation_connected'] ?? null,
                 'next_followup_date' => $validated['next_followup_date'] ?? null,
+                'next_followup_datetime' => $activityFollowupDatetime,
                 'remarks' => $validated['remarks'] ?? null,
                 'notes' => $validated['notes'] ?? null,
                 'created_at' => now()->utc(),

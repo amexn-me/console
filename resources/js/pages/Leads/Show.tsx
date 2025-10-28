@@ -14,6 +14,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Plus, PlusCircle, ExternalLink, UserCheck, UserX, MessageCircle, AlertCircle, Pencil, FileUp, Loader2, Save, X, Trophy, XCircle, Linkedin, ChevronLeft, ChevronRight, Download, Copy, Check, Mail, Phone, Ban } from 'lucide-react';
 import axios from 'axios';
 import { usePermissions } from '@/hooks/use-permissions';
+import { useTimezone } from '@/hooks/use-timezone';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 
 interface Agent {
@@ -40,6 +41,7 @@ interface Contact {
     is_invalid: boolean;
     next_followup_date: string | null;
     followup_time: string | null;
+    next_followup_datetime: string | null;
 }
 
 interface Campaign {
@@ -120,6 +122,7 @@ interface PageProps {
 export default function LeadsShow() {
     const { lead, agents = [], partners = [], stages = [], conversationMethods = [], interestLevels = [], remarkOptions = [], nextLeadId = null, previousLeadId = null } = usePage<PageProps>().props;
     const permissions = usePermissions();
+    const { formatInTimezone, getTimezoneForBackend } = useTimezone();
     
     const [notesDialogOpen, setNotesDialogOpen] = useState(false);
     const [updateDetailsDialogOpen, setUpdateDetailsDialogOpen] = useState(false);
@@ -361,8 +364,21 @@ export default function LeadsShow() {
         // Check if interest level changed
         const interestLevelChanged = updatingContact.interest_level !== updateForm.data.interest_level;
         
-        // First update the lead activity
-        updateForm.post(`/sales/leads/${lead.id}/update`, {
+        // First update the lead activity - include timezone
+        router.post(`/sales/leads/${lead.id}/update`, {
+            ...updateForm.data,
+            user_timezone: getTimezoneForBackend(),
+        }, {
+            preserveScroll: true,
+            preserveState: true,
+            onError: (errors) => {
+                // Set errors on the form manually
+                Object.keys(errors).forEach(key => {
+                    if (key in updateForm.data) {
+                        updateForm.setError(key as keyof typeof updateForm.data, errors[key]);
+                    }
+                });
+            },
             onSuccess: () => {
                 // If interest level changed, update the contact
                 if (interestLevelChanged) {
@@ -1261,7 +1277,7 @@ export default function LeadsShow() {
                                                                                     {...provided.draggableProps}
                                                                                     {...provided.dragHandleProps}
                                                                                     className={`relative border-2 ${
-                                                                                        contact.next_followup_date 
+                                                                                        contact.next_followup_datetime 
                                                                                             ? 'border-blue-500' 
                                                                                             : 'border-gray-300'
                                                                                     } rounded-lg px-3 py-5 bg-white ${
@@ -1498,10 +1514,9 @@ export default function LeadsShow() {
                                                                     </div>
                                                                                     
                                                                                     {/* Follow-up badge on bottom border */}
-                                                                                    {contact.next_followup_date && (
+                                                                                    {contact.next_followup_datetime && (
                                                                                         <div className="absolute -bottom-2 left-1/2 transform -translate-x-1/2 bg-blue-500 text-white px-3 py-1 rounded-full shadow-md text-xs font-medium whitespace-nowrap">
-                                                                                            Follow-up: {new Date(contact.next_followup_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                                                                                            {contact.followup_time && ` at ${contact.followup_time}`}
+                                                                                            Follow-up: {formatInTimezone(contact.next_followup_datetime)}
                                                                                         </div>
                                                                                     )}
                                                                                 </div>
@@ -2172,7 +2187,7 @@ export default function LeadsShow() {
                                         value={updateForm.data.conversation_method}
                                         onValueChange={(value) => updateForm.setData('conversation_method', value)}
                                     >
-                                        <SelectTrigger id="conversation_method">
+                                        <SelectTrigger id="conversation_method" className={updateForm.errors.conversation_method ? 'border-red-500' : ''}>
                                             <SelectValue placeholder="Select method..." />
                                         </SelectTrigger>
                                         <SelectContent>
@@ -2196,7 +2211,7 @@ export default function LeadsShow() {
                                         value={updateForm.data.conversation_connected}
                                         onValueChange={(value) => updateForm.setData('conversation_connected', value)}
                                     >
-                                        <SelectTrigger id="conversation_connected">
+                                        <SelectTrigger id="conversation_connected" className={updateForm.errors.conversation_connected ? 'border-red-500' : ''}>
                                             <SelectValue placeholder="Select..." />
                                         </SelectTrigger>
                                         <SelectContent>
@@ -2216,7 +2231,11 @@ export default function LeadsShow() {
                                         type="date"
                                         value={updateForm.data.next_followup_date}
                                         onChange={(e) => updateForm.setData('next_followup_date', e.target.value)}
+                                        className={updateForm.errors.next_followup_date ? 'border-red-500' : ''}
                                     />
+                                    {updateForm.errors.next_followup_date && (
+                                        <p className="text-sm text-red-500 mt-1">{updateForm.errors.next_followup_date}</p>
+                                    )}
                                 </div>
 
                                 <div>
@@ -2226,7 +2245,11 @@ export default function LeadsShow() {
                                         type="time"
                                         value={updateForm.data.followup_time}
                                         onChange={(e) => updateForm.setData('followup_time', e.target.value)}
+                                        className={updateForm.errors.followup_time ? 'border-red-500' : ''}
                                     />
+                                    {updateForm.errors.followup_time && (
+                                        <p className="text-sm text-red-500 mt-1">{updateForm.errors.followup_time}</p>
+                                    )}
                                 </div>
 
                                 <div>
@@ -2237,7 +2260,7 @@ export default function LeadsShow() {
                                         value={updateForm.data.lead_stage}
                                         onValueChange={(value) => updateForm.setData('lead_stage', value)}
                                     >
-                                        <SelectTrigger id="lead_stage">
+                                        <SelectTrigger id="lead_stage" className={updateForm.errors.lead_stage ? 'border-red-500' : ''}>
                                             <SelectValue placeholder="Select stage..." />
                                         </SelectTrigger>
                                         <SelectContent>
@@ -2261,7 +2284,7 @@ export default function LeadsShow() {
                                         value={updateForm.data.interest_level}
                                         onValueChange={(value) => updateForm.setData('interest_level', value)}
                                     >
-                                        <SelectTrigger id="interest_level">
+                                        <SelectTrigger id="interest_level" className={updateForm.errors.interest_level ? 'border-red-500' : ''}>
                                             <SelectValue placeholder="Select level..." />
                                         </SelectTrigger>
                                         <SelectContent>
@@ -2283,7 +2306,7 @@ export default function LeadsShow() {
                                         value={updateForm.data.remarks}
                                         onValueChange={(value) => updateForm.setData('remarks', value)}
                                     >
-                                        <SelectTrigger id="remarks">
+                                        <SelectTrigger id="remarks" className={updateForm.errors.remarks ? 'border-red-500' : ''}>
                                             <SelectValue placeholder="Select remark..." />
                                         </SelectTrigger>
                                         <SelectContent>
@@ -2294,6 +2317,9 @@ export default function LeadsShow() {
                                             ))}
                                         </SelectContent>
                                     </Select>
+                                    {updateForm.errors.remarks && (
+                                        <p className="text-sm text-red-500 mt-1">{updateForm.errors.remarks}</p>
+                                    )}
                                 </div>
                             </div>
 
@@ -2305,7 +2331,11 @@ export default function LeadsShow() {
                                     value={updateForm.data.notes}
                                     onChange={(e) => updateForm.setData('notes', e.target.value)}
                                     placeholder="Enter any additional notes..."
+                                    className={updateForm.errors.notes ? 'border-red-500' : ''}
                                 />
+                                {updateForm.errors.notes && (
+                                    <p className="text-sm text-red-500 mt-1">{updateForm.errors.notes}</p>
+                                )}
                             </div>
 
                             <div className="flex justify-end gap-2">
@@ -2321,7 +2351,7 @@ export default function LeadsShow() {
                                 </Button>
                                 <Button type="submit" disabled={isSubmitting}>
                                     {isSubmitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                                    Update Details
+                                    Add New Event
                                 </Button>
                             </div>
                         </form>

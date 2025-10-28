@@ -4,7 +4,7 @@ import { NavUser } from '@/components/nav-user';
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar';
 import { type NavItem, type NavGroup } from '@/types';
 import { Link } from '@inertiajs/react';
-import { BookOpen, Building2, CalendarDays, Clipboard, FileText, Folder, Gauge, Handshake, LayoutGrid, Megaphone, Puzzle, Target, UserCircle, Users, FolderKanban, FileSignature } from 'lucide-react';
+import { BookOpen, Building2, CalendarDays, Clipboard, FileText, Folder, Gauge, Handshake, LayoutGrid, Megaphone, Puzzle, Target, UserCircle, Users, FolderKanban, FileSignature, Repeat } from 'lucide-react';
 import AppLogo from './app-logo';
 import { usePermissions } from '@/hooks/use-permissions';
 import { useMemo } from 'react';
@@ -50,6 +50,11 @@ const allNavGroups: (NavGroup & { requiredPermission?: string })[] = [
                 title: 'Leads',
                 href: '/sales/leads',
                 icon: Target,
+            },
+            {
+                title: 'Followups',
+                href: '/sales/followups',
+                icon: Repeat,
             },
             {
                 title: 'Meetings',
