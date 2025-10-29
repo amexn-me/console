@@ -31,6 +31,11 @@ const superAdminNavItems: NavItem[] = [
         href: '/settings/currency',
         icon: null,
     },
+    {
+        title: 'Company LinkedIn Code',
+        href: '/settings/company-linkedin-code',
+        icon: null,
+    },
 ];
 
 export default function SettingsLayout({ children }: PropsWithChildren) {
