@@ -2309,7 +2309,7 @@ export default function LeadsShow() {
                                         <SelectTrigger id="remarks" className={updateForm.errors.remarks ? 'border-red-500' : ''}>
                                             <SelectValue placeholder="Select remark..." />
                                         </SelectTrigger>
-                                        <SelectContent>
+                                        <SelectContent className="max-h-[400px]">
                                             {remarkOptions.map(remark => (
                                                 <SelectItem key={remark} value={remark}>
                                                     {remark}

@@ -54,6 +54,11 @@ interface Agent {
     name: string;
 }
 
+interface Campaign {
+    id: number;
+    name: string;
+}
+
 interface PageProps {
     companies: {
         data: Company[];
@@ -68,6 +73,7 @@ interface PageProps {
         }>;
     };
     agents: Agent[];
+    campaigns: Campaign[];
     stages: string[];
     filters: {
         stage?: string | string[];
@@ -82,7 +88,7 @@ interface PageProps {
 }
 
 export default function CompaniesIndex() {
-    const { companies: initialCompanies, agents, stages, filters } = usePage<PageProps>().props;
+    const { companies: initialCompanies, agents, campaigns, stages, filters } = usePage<PageProps>().props;
     const permissions = usePermissions();
     
     const [companies, setCompanies] = useState(initialCompanies.data);
@@ -118,6 +124,7 @@ export default function CompaniesIndex() {
         name: '',
         stage: 'PIC Not Identified',
         agent_id: '',
+        campaign_id: '',
     });
 
     // Only reset companies on initial load or when page 1 is loaded
@@ -645,6 +652,30 @@ export default function CompaniesIndex() {
                                 <p className="text-sm text-red-500">{addCompanyForm.errors.agent_id}</p>
                             )}
                         </div>
+
+                        {campaigns && campaigns.length > 0 && (
+                            <div className="space-y-2">
+                                <Label htmlFor="campaign_id">Select Campaign (Optional)</Label>
+                                <Select
+                                    value={addCompanyForm.data.campaign_id || undefined}
+                                    onValueChange={(value) => addCompanyForm.setData('campaign_id', value)}
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="None - Don't add to campaign" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {campaigns.map((campaign) => (
+                                            <SelectItem key={campaign.id} value={campaign.id.toString()}>
+                                                {campaign.name}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                                {addCompanyForm.errors.campaign_id && (
+                                    <p className="text-sm text-red-500">{addCompanyForm.errors.campaign_id}</p>
+                                )}
+                            </div>
+                        )}
 
                         <div className="flex justify-end gap-2 pt-4">
                             <Button

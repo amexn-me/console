@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Models\Company;
 use App\Models\User;
 use App\Models\Activity;
+use App\Models\Campaign;
+use App\Models\Lead;
 use App\Exports\CompaniesExport;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -112,9 +114,16 @@ class CompaniesController extends Controller
         
         $stages = Company::distinct()->pluck('stage')->filter()->values();
 
+        // Get active campaigns for the dropdown
+        $campaigns = Campaign::where('status', 'active')
+            ->select('id', 'name')
+            ->orderBy('name')
+            ->get();
+
         return Inertia::render('Companies/Index', [
             'companies' => $companies,
             'agents' => $agents,
+            'campaigns' => $campaigns,
             'stages' => $stages,
             'filters' => $request->only(['stage', 'agent_id', 'search', 'pic_status', 'interest_level', 'sort_by', 'sort_direction']),
         ]);
@@ -162,12 +171,16 @@ class CompaniesController extends Controller
             'name' => 'required|string|max:255',
             'stage' => 'required|string',
             'agent_id' => 'required|exists:users,id',
+            'campaign_id' => 'nullable|exists:campaigns,id',
         ]);
 
         // Generate a new ID
         $maxId = Company::max('id') ?? 0;
         $validated['id'] = $maxId + 1;
         $validated['created_at'] = now()->utc();
+
+        $campaignId = $validated['campaign_id'] ?? null;
+        unset($validated['campaign_id']); // Remove campaign_id from company data
 
         $company = Company::create($validated);
 
@@ -181,6 +194,36 @@ class CompaniesController extends Controller
             'notes' => "Company '{$company->name}' was created",
             'created_at' => now()->utc(),
         ]);
+
+        // If campaign_id is provided, create a lead entry
+        if ($campaignId) {
+            // Check if company is already in this campaign
+            $existingLead = Lead::where('campaign_id', $campaignId)
+                ->where('company_id', $company->id)
+                ->first();
+
+            if (!$existingLead) {
+                // Create lead with the same agent and stage
+                Lead::create([
+                    'campaign_id' => $campaignId,
+                    'company_id' => $company->id,
+                    'agent_id' => $company->agent_id,
+                    'stage' => $company->stage,
+                ]);
+
+                // Log activity for lead creation
+                $activityMaxId = Activity::max('id') ?? 0;
+                $campaign = Campaign::find($campaignId);
+                Activity::create([
+                    'id' => $activityMaxId + 1,
+                    'agent_id' => auth()->id(),
+                    'company_id' => $company->id,
+                    'activity_type' => 'lead_created',
+                    'notes' => "Company added to campaign: {$campaign->name}",
+                    'created_at' => now()->utc(),
+                ]);
+            }
+        }
 
         return redirect()->route('companies.index')->with('success', 'Company created successfully');
     }

@@ -228,7 +228,15 @@ class LeadsController extends Controller
             'Timeline delayed',
             'Positive feedback',
             'Ready to proceed',
-            'Not interested at this time'
+            'Not interested at this time',
+            'We already have an e-invoicing provider',
+            'Busy, contact me later',
+            'Send me an email',
+            'Send me details on WhatsApp',
+            'We already have a solution',
+            'Not the PIC',
+            'No response',
+            'Others'
         ];
 
         return Inertia::render('Leads/Index', [
@@ -324,7 +332,15 @@ class LeadsController extends Controller
             'Timeline delayed',
             'Positive feedback',
             'Ready to proceed',
-            'Not interested at this time'
+            'Not interested at this time',
+            'We already have an e-invoicing provider',
+            'Busy, contact me later',
+            'Send me an email',
+            'Send me details on WhatsApp',
+            'We already have a solution',
+            'Not the PIC',
+            'No response',
+            'Others'
         ];
 
         // Find next and previous leads
