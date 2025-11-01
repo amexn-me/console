@@ -179,8 +179,10 @@ export default function CampaignsShow() {
     const [analyticsPeriod, setAnalyticsPeriod] = useState<'daily' | 'weekly' | 'monthly'>(initialAnalytics.current_period as 'daily' | 'weekly' | 'monthly' || 'daily');
 
     // Advance Reports state
-    const [reportStartDate, setReportStartDate] = useState<string>(new Date().toISOString().split('T')[0]);
-    const [reportEndDate, setReportEndDate] = useState<string>(new Date().toISOString().split('T')[0]);
+    const [leadContactReportStartDate, setLeadContactReportStartDate] = useState<string>(new Date().toISOString().split('T')[0]);
+    const [leadContactReportEndDate, setLeadContactReportEndDate] = useState<string>(new Date().toISOString().split('T')[0]);
+    const [stageChangeReportStartDate, setStageChangeReportStartDate] = useState<string>(new Date().toISOString().split('T')[0]);
+    const [stageChangeReportEndDate, setStageChangeReportEndDate] = useState<string>(new Date().toISOString().split('T')[0]);
     const [isExportingReport, setIsExportingReport] = useState(false);
 
     // Bulk add companies state
@@ -1610,7 +1612,7 @@ export default function CampaignsShow() {
                                             {/* Lead-Contact-Activity Report */}
                                             <TableRow className="hover:bg-blue-50/50">
                                                 <TableCell className="text-center">
-                                                    <div className="flex items-center justify-center w-8 h-8 rounded-full bg-blue-600 text-white font-bold">
+                                                    <div className="text-lg font-semibold text-muted-foreground">
                                                         1
                                                     </div>
                                                 </TableCell>
@@ -1626,17 +1628,17 @@ export default function CampaignsShow() {
                                                     <div className="flex items-center justify-center gap-2">
                                                         <Input
                                                             type="date"
-                                                            value={reportStartDate}
-                                                            onChange={(e) => setReportStartDate(e.target.value)}
-                                                            max={reportEndDate}
+                                                            value={leadContactReportStartDate}
+                                                            onChange={(e) => setLeadContactReportStartDate(e.target.value)}
+                                                            max={leadContactReportEndDate}
                                                             className="w-[150px]"
                                                         />
                                                         <span className="text-xs text-muted-foreground">to</span>
                                                         <Input
                                                             type="date"
-                                                            value={reportEndDate}
-                                                            onChange={(e) => setReportEndDate(e.target.value)}
-                                                            min={reportStartDate}
+                                                            value={leadContactReportEndDate}
+                                                            onChange={(e) => setLeadContactReportEndDate(e.target.value)}
+                                                            min={leadContactReportStartDate}
                                                             className="w-[150px]"
                                                         />
                                                     </div>
@@ -1649,11 +1651,80 @@ export default function CampaignsShow() {
                                                             // Trigger download
                                                             window.location.href = route('campaigns.advance-reports.lead-contact-activity', {
                                                                 campaign: campaign.id,
-                                                                start_date: reportStartDate,
-                                                                end_date: reportEndDate,
+                                                                start_date: leadContactReportStartDate,
+                                                                end_date: leadContactReportEndDate,
                                                             });
                                                             
                                                             // Stop loading after 5 seconds (enough time for download to start)
+                                                            setTimeout(() => {
+                                                                setIsExportingReport(false);
+                                                            }, 5000);
+                                                        }}
+                                                        disabled={isExportingReport}
+                                                        className="w-full"
+                                                    >
+                                                        {isExportingReport ? (
+                                                            <>
+                                                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                                                Exporting...
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                <Download className="mr-2 h-4 w-4" />
+                                                                Export
+                                                            </>
+                                                        )}
+                                                    </Button>
+                                                </TableCell>
+                                            </TableRow>
+
+                                            {/* Stage Change Analysis Report */}
+                                            <TableRow className="hover:bg-green-50/50">
+                                                <TableCell className="text-center">
+                                                    <div className="text-lg font-semibold text-muted-foreground">
+                                                        2
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell>
+                                                    <div>
+                                                        <div className="font-semibold">Stage Change Analysis</div>
+                                                        <div className="text-sm text-muted-foreground">
+                                                            Track stage progression with lead-wise and agent-wise analytics
+                                                        </div>
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell>
+                                                    <div className="flex items-center justify-center gap-2">
+                                                        <Input
+                                                            type="date"
+                                                            value={stageChangeReportStartDate}
+                                                            onChange={(e) => setStageChangeReportStartDate(e.target.value)}
+                                                            max={stageChangeReportEndDate}
+                                                            className="w-[150px]"
+                                                        />
+                                                        <span className="text-xs text-muted-foreground">to</span>
+                                                        <Input
+                                                            type="date"
+                                                            value={stageChangeReportEndDate}
+                                                            onChange={(e) => setStageChangeReportEndDate(e.target.value)}
+                                                            min={stageChangeReportStartDate}
+                                                            className="w-[150px]"
+                                                        />
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell className="text-center">
+                                                    <Button
+                                                        onClick={() => {
+                                                            setIsExportingReport(true);
+                                                            
+                                                            // Trigger download
+                                                            window.location.href = route('campaigns.advance-reports.stage-change-analysis', {
+                                                                campaign: campaign.id,
+                                                                start_date: stageChangeReportStartDate,
+                                                                end_date: stageChangeReportEndDate,
+                                                            });
+                                                            
+                                                            // Stop loading after 5 seconds
                                                             setTimeout(() => {
                                                                 setIsExportingReport(false);
                                                             }, 5000);

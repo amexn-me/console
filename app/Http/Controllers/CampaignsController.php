@@ -14,6 +14,7 @@ use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\CampaignLeadsExport;
 use App\Exports\AgentActivityAnalyticsExport;
 use App\Exports\LeadContactActivityReportExport;
+use App\Exports\StageChangeAnalysisReportExport;
 
 class CampaignsController extends Controller
 {
@@ -971,6 +972,29 @@ class CampaignsController extends Controller
         
         return Excel::download(
             new LeadContactActivityReportExport($campaign->id, $startDate, $endDate, $campaign->name), 
+            $fileName
+        );
+    }
+
+    public function exportStageChangeAnalysisReport(Campaign $campaign, Request $request)
+    {
+        // Only admins can export advance reports
+        if (!auth()->user()->isAdmin()) {
+            abort(403, 'Unauthorized action. Only admins can export advance reports.');
+        }
+
+        $validated = $request->validate([
+            'start_date' => 'required|date',
+            'end_date' => 'required|date|after_or_equal:start_date',
+        ]);
+
+        $startDate = $validated['start_date'];
+        $endDate = $validated['end_date'];
+        
+        $fileName = 'campaign_' . $campaign->id . '_stage_change_analysis_' . $startDate . '_to_' . $endDate . '_' . now()->format('YmdHis') . '.xlsx';
+        
+        return Excel::download(
+            new StageChangeAnalysisReportExport($campaign->id, $startDate, $endDate, $campaign->name), 
             $fileName
         );
     }

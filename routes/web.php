@@ -51,6 +51,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('campaigns/{campaign}/leads/export', [CampaignsController::class, 'exportLeads'])->name('campaigns.leads.export');
             Route::get('campaigns/{campaign}/agent-activity-analytics/export', [CampaignsController::class, 'exportAgentActivityAnalytics'])->name('campaigns.agent-activity-analytics.export');
             Route::get('campaigns/{campaign}/advance-reports/lead-contact-activity', [CampaignsController::class, 'exportLeadContactActivityReport'])->name('campaigns.advance-reports.lead-contact-activity');
+            Route::get('campaigns/{campaign}/advance-reports/stage-change-analysis', [CampaignsController::class, 'exportStageChangeAnalysisReport'])->name('campaigns.advance-reports.stage-change-analysis');
             Route::post('campaigns/{campaign}/bulk-import/preview', [CampaignsController::class, 'previewImport'])->name('campaigns.bulk-import.preview');
             Route::post('campaigns/{campaign}/bulk-import', [CampaignsController::class, 'bulkImport'])->name('campaigns.bulk-import');
         });
